@@ -6,10 +6,12 @@ import type {
   DistrictData,
   ProvinceData,
   DatasetManifestEntry,
+  NuuuwanSeries,
 } from '@/types'
 
 const BASE_URL = 'https://raw.githubusercontent.com/LDFLK/datasets/main/data/statistics'
 const NUUUWAN_BASE_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/sources/cbsl'
+const NUUUWAN_SMALL_CATALOG_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/all.small.json'
 
 const cache = new Map<string, { data: unknown; expires: number }>()
 const CACHE_TTL = 5 * 60 * 1000
@@ -56,6 +58,7 @@ const DISTRICT_NAME_MAP: Record<string, string> = {
   'polonnaruwa': 'Polonnaruwa',
   'badulla': 'Badulla',
   'monaragala': 'Moneragala', // GeoJSON uses "Moneragala"
+  'ratnapura': 'Ratnapura',
   'rathnapura': 'Ratnapura', // GeoJSON uses "Ratnapura"
   'kegalle': 'Kegalle',
 }
@@ -181,6 +184,8 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'accommodations-by-district',
     name: 'Accommodations by District',
     description: 'Number of hotel rooms by district.',
+    source: 'ldflk',
+    unit: 'rooms',
     level: 'district',
     path: 'datasets/Accommodations by District',
     years: [2020, 2021, 2022, 2023, 2024],
@@ -191,6 +196,8 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'occupancy-rate-by-district',
     name: 'Occupancy Rate by District',
     description: 'Accommodation occupancy rate by district.',
+    source: 'ldflk',
+    unit: '%',
     level: 'district',
     path: 'datasets/Occupancy Rate by District',
     yearPaths: {
@@ -204,6 +211,8 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'slbfe-registration-by-district',
     name: 'SLBFE Registration by District',
     description: 'Foreign employment registrations by district and manpower category.',
+    source: 'ldflk',
+    unit: 'registrations',
     level: 'district',
     path: 'datasets/SLBFE Registration by District',
     yearPaths: {
@@ -303,6 +312,8 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'accommodation-capacity-by-district',
     name: 'Accommodation Capacity by District',
     description: 'Accommodation capacity by district.',
+    source: 'ldflk',
+    unit: 'rooms',
     level: 'district',
     path: 'datasets/Accommodation Capacity by District',
     years: [2019],
@@ -313,6 +324,8 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'accommodations-by-province',
     name: 'Accommodations by Province',
     description: 'Number of hotel rooms by province.',
+    source: 'ldflk',
+    unit: 'rooms',
     level: 'province',
     path: 'datasets/Accommodations by Province',
     years: [2020, 2021, 2022, 2023, 2024],
@@ -323,6 +336,9 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     id: 'cbsl-provincial-revenue',
     name: 'Provincial Revenue (CBSL)',
     description: 'Revenue collection of provincial councils (Rs. Mn) — CBSL timeseries.',
+    source: 'nuuuwan',
+    secondarySource: 'CBSL',
+    unit: 'Rs. Mn',
     level: 'province',
     path: 'nuuuwan:cbsl-provincial-revenue',
     years: [
@@ -359,6 +375,11 @@ function normalizeMetricName(metric: string): string {
     .replace(/others/g, 'others')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function isAggregateRow(name: string): boolean {
+  const normalized = name.toLowerCase().trim()
+  return normalized === 'total' || normalized === 'all' || normalized === 'sri lanka'
 }
 
 function getMetricColumnIndices(columns: string[], valueColumn?: string): number[] {
@@ -441,7 +462,7 @@ export async function fetchDistrictData(year: number, datasetPath: string, value
   const valueCol = valueColIdx !== -1 ? valueColIdx : tabular.columns.length - 1
 
   return tabular.rows
-    .filter((row) => row[districtCol] && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
+    .filter((row) => row[districtCol] && !isAggregateRow(String(row[districtCol])) && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
     .map((row) => {
       const district = normalizeDistrict(String(row[districtCol]))
 
@@ -481,7 +502,7 @@ export async function fetchProvinceData(year: number, datasetPath: string, value
   const valueCol = valueColIdx !== -1 ? valueColIdx : tabular.columns.length - 1
 
   return tabular.rows
-    .filter((row) => row[provinceCol] && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
+    .filter((row) => row[provinceCol] && !isAggregateRow(String(row[provinceCol])) && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
     .map((row) => {
       const province = normalizeProvince(String(row[provinceCol]))
 
@@ -500,6 +521,87 @@ export async function fetchProvinceData(year: number, datasetPath: string, value
 }
 
 let geojsonCache: FeatureCollection | null = null
+
+export interface DatasetSeriesPoint {
+  name: string
+  values: Record<number, number>
+}
+
+interface NuuuwanSmallSeries {
+  source_id?: string
+  category?: string
+  sub_category?: string
+  unit?: string
+  frequency_name?: string
+  cleaned_data?: Record<string, number>
+}
+
+export async function fetchDatasetSeries(
+  datasetId: string,
+  metric?: string,
+): Promise<DatasetSeriesPoint[]> {
+  const dataset = DATASET_MANIFEST.find((entry) => entry.id === datasetId)
+  if (!dataset) {
+    return []
+  }
+
+  const byName = new Map<string, DatasetSeriesPoint>()
+  const yearRows = await Promise.all(
+    dataset.years.map(async (year) => ({
+      year,
+      rows: dataset.level === 'district'
+        ? await fetchDistrictData(year, dataset.path, metric)
+        : await fetchProvinceData(year, dataset.path, metric),
+    })),
+  )
+
+  yearRows.forEach(({ year, rows }) => {
+    rows.forEach((row) => {
+      const existing = byName.get(row.name) ?? { name: row.name, values: {} }
+      existing.values[year] = row.value
+      byName.set(row.name, existing)
+    })
+  })
+
+  return Array.from(byName.values())
+}
+
+export async function fetchNuuuwanSeriesCatalog(): Promise<NuuuwanSeries[]> {
+  const cacheKey = 'nuuuwan-series-catalog'
+  const cached = getCached<NuuuwanSeries[]>(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const { data } = await axios.get<Record<string, NuuuwanSmallSeries>>(NUUUWAN_SMALL_CATALOG_URL)
+  const series = Object.entries(data).flatMap(([id, rawSeries]) => {
+    const cleaned = rawSeries.cleaned_data ?? {}
+    const values = Object.entries(cleaned).reduce<Record<number, number>>((acc, [date, value]) => {
+      const year = Number(String(date).slice(0, 4))
+      if (Number.isFinite(year) && Number.isFinite(Number(value))) {
+        acc[year] = Number(value)
+      }
+      return acc
+    }, {})
+
+    if (Object.keys(values).length === 0) {
+      return []
+    }
+
+    const label = rawSeries.sub_category || rawSeries.category || id
+    return [{
+      id,
+      label,
+      source: rawSeries.source_id ? `nuuuwan (${rawSeries.source_id.toUpperCase()})` : 'nuuuwan',
+      unit: rawSeries.unit,
+      frequency: rawSeries.frequency_name,
+      values,
+    }]
+  })
+
+  setCache(cacheKey, series, 60 * 60 * 1000)
+  return series
+}
 
 export async function loadGeoJSON(): Promise<FeatureCollection> {
   if (geojsonCache) return geojsonCache

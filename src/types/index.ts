@@ -39,6 +39,9 @@ export interface DatasetManifestEntry {
   id: string
   name: string
   description: string
+  source: 'ldflk' | 'nuuuwan'
+  secondarySource?: string
+  unit: string
   level: 'district' | 'province'
   path: string
   yearPaths?: Record<number, string>
@@ -77,7 +80,18 @@ export interface ProvinceData {
   originalValue?: unknown
 }
 
-export type VisualizationMode = 'choropleth' | 'heatmap' | 'points'
+export type VisualizationMode = 'choropleth' | 'heatmap'
+export type AppTab = 'map' | 'timeseries' | 'table'
+export type ThemeMode = 'light' | 'dark' | 'system'
+
+export interface NuuuwanSeries {
+  id: string
+  label: string
+  source: string
+  unit?: string
+  frequency?: string
+  values: Record<number, number>
+}
 
 export interface ColorScale {
   min: number

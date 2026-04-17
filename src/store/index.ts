@@ -2,11 +2,13 @@
 
 import { create } from 'zustand'
 import { persist, devtools } from 'zustand/middleware'
-import type { ColorScale, VisualizationMode, LatLngTuple, MapData } from '@/types'
+import type { AppTab, ColorScale, VisualizationMode, LatLngTuple, MapData, TabularData, ThemeMode } from '@/types'
 import {
   fetchDistrictData,
+  fetchDatasetSeries,
   fetchProvinceData,
   AVAILABLE_DATASETS,
+  DATASET_MANIFEST,
   getMetricsForYear,
   getDefaultMetricForYear,
 } from '@/services/dataService'
@@ -22,14 +24,23 @@ interface AppState {
   data: MapData[] | null
   selectedMetric: string | null
   currentDatasetLevel: 'district' | 'province' | null
+  currentDatasetSource: 'ldflk' | 'nuuuwan' | null
+  currentDatasetSecondarySource: string | null
+  currentDatasetUnit: string | null
   availableMetrics: string[]
+  tableData: TabularData | null
+  seriesData: Record<string, Record<number, number>>
   loading: boolean
   error: string | null
   
   sidebarOpen: boolean
   visualizationMode: VisualizationMode
+  showChoropleth: boolean
+  showCentroids: boolean
+  currentTab: AppTab
   colorScale: ColorScale
   showTooltips: boolean
+  themeMode: ThemeMode
   
   setMapCenter: (center: LatLngTuple) => void
   setZoom: (zoom: number) => void
@@ -38,6 +49,10 @@ interface AppState {
   loadDataset: (datasetId: string, year: number, metric?: string) => Promise<void>
   setSelectedMetric: (metric: string) => void
   setVisualizationMode: (mode: VisualizationMode) => void
+  setShowChoropleth: (show: boolean) => void
+  setShowCentroids: (show: boolean) => void
+  setCurrentTab: (tab: AppTab) => void
+  setThemeMode: (mode: ThemeMode) => void
   toggleSidebar: () => void
   setColorScale: (scale: ColorScale) => void
   toggleTooltips: () => void
@@ -80,14 +95,23 @@ export const useAppStore = create<AppState>()(
         data: null,
         selectedMetric: null,
         currentDatasetLevel: null,
+        currentDatasetSource: null,
+        currentDatasetSecondarySource: null,
+        currentDatasetUnit: null,
         availableMetrics: [],
+        tableData: null,
+        seriesData: {},
         loading: false,
         error: null,
         
         sidebarOpen: true,
         visualizationMode: 'choropleth',
+        showChoropleth: true,
+        showCentroids: false,
+        currentTab: 'map',
         colorScale: DEFAULT_COLOR_SCALE,
         showTooltips: true,
+        themeMode: 'system',
         
         setMapCenter: (center) => set({ mapCenter: center }),
         setZoom: (zoom) => set({ zoom }),
@@ -118,11 +142,16 @@ export const useAppStore = create<AppState>()(
             loading: true,
             error: null,
             data: null,
+            tableData: null,
+            seriesData: {},
             colorScale: DEFAULT_COLOR_SCALE,
             currentDataset: datasetId,
             currentYear: supportedYear,
             selectedMetric,
             currentDatasetLevel: dataset.level,
+            currentDatasetSource: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.source ?? null,
+            currentDatasetSecondarySource: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.secondarySource ?? null,
+            currentDatasetUnit: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.unit ?? null,
             availableMetrics,
           })
           
@@ -164,8 +193,20 @@ export const useAppStore = create<AppState>()(
                 colors: DEFAULT_COLOR_SCALE.colors,
               }
 
+              const shouldLoadSeries = get().currentTab === 'timeseries'
+              const rawSeries = shouldLoadSeries ? await fetchDatasetSeries(datasetId, selectedMetric) : []
+              const seriesData = rawSeries.reduce<Record<string, Record<number, number>>>((acc, point) => {
+                acc[point.name] = point.values
+                return acc
+              }, {})
+
+              const tableData: TabularData = {
+                columns: ['Name', 'Value'],
+                rows: provinceData.map((item) => [item.originalName ?? item.name, item.value]),
+              }
+
               if (requestId !== _loadRequestId) return
-              set({ data, loading: false, colorScale })
+              set({ data, loading: false, colorScale, tableData, seriesData })
               return
             }
             
@@ -176,8 +217,20 @@ export const useAppStore = create<AppState>()(
               colors: DEFAULT_COLOR_SCALE.colors,
             }
             
+            const tableData = {
+              columns: ['Name', 'Value'],
+              rows: data.map((item) => [item.originalName ?? item.name, item.value]),
+            }
+
+            const shouldLoadSeries = get().currentTab === 'timeseries'
+            const rawSeries = shouldLoadSeries ? await fetchDatasetSeries(datasetId, selectedMetric) : []
+            const seriesData = rawSeries.reduce<Record<string, Record<number, number>>>((acc, point) => {
+              acc[point.name] = point.values
+              return acc
+            }, {})
+
             if (requestId !== _loadRequestId) return
-            set({ data, loading: false, colorScale })
+            set({ data, loading: false, colorScale, tableData, seriesData })
           } catch (err) {
             if (requestId !== _loadRequestId) return
             set({ 
@@ -199,6 +252,16 @@ export const useAppStore = create<AppState>()(
         },
         
         setVisualizationMode: (mode) => set({ visualizationMode: mode }),
+        setShowChoropleth: (show) => set({ showChoropleth: show }),
+        setShowCentroids: (show) => set({ showCentroids: show }),
+        setCurrentTab: (tab) => {
+          set({ currentTab: tab })
+          const { currentDataset, currentYear, selectedMetric } = get()
+          if (tab === 'timeseries' && currentDataset && Object.keys(get().seriesData).length === 0) {
+            void get().loadDataset(currentDataset, currentYear, selectedMetric ?? undefined)
+          }
+        },
+        setThemeMode: (mode) => set({ themeMode: mode }),
         toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
         setColorScale: (scale) => set({ colorScale: scale }),
         toggleTooltips: () => set((state) => ({ showTooltips: !state.showTooltips })),
@@ -209,9 +272,11 @@ export const useAppStore = create<AppState>()(
         partialize: (state) => ({
           sidebarOpen: state.sidebarOpen,
           visualizationMode: state.visualizationMode,
+          currentTab: state.currentTab,
           showTooltips: state.showTooltips,
           currentYear: state.currentYear,
           selectedMetric: state.selectedMetric,
+          themeMode: state.themeMode,
         }),
       }
     ),
@@ -232,7 +297,12 @@ export const useDataState = () => useAppStore((state) => ({
   data: state.data,
   selectedMetric: state.selectedMetric,
   currentDatasetLevel: state.currentDatasetLevel,
+  currentDatasetSource: state.currentDatasetSource,
+  currentDatasetSecondarySource: state.currentDatasetSecondarySource,
+  currentDatasetUnit: state.currentDatasetUnit,
   availableMetrics: state.availableMetrics,
+  tableData: state.tableData,
+  seriesData: state.seriesData,
   loading: state.loading,
   error: state.error,
 }))
@@ -240,6 +310,10 @@ export const useDataState = () => useAppStore((state) => ({
 export const useUIState = () => useAppStore((state) => ({
   sidebarOpen: state.sidebarOpen,
   visualizationMode: state.visualizationMode,
+  showChoropleth: state.showChoropleth,
+  showCentroids: state.showCentroids,
+  currentTab: state.currentTab,
   colorScale: state.colorScale,
   showTooltips: state.showTooltips,
+  themeMode: state.themeMode,
 }))
