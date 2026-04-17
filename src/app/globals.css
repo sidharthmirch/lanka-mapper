@@ -1,56 +1,55 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'leaflet/dist/leaflet.css';
 
 :root {
-  --background: #fafafa;
-  --foreground: #1a1a1a;
-  --primary: #007aff;
-  --primary-dark: #0059b8;
-  --secondary: #dc004e;
-  --surface: #ffffff;
-  --surface-variant: #f5f5f5;
-  --on-surface: #212121;
-  --on-surface-variant: #757575;
-  --outline: #e0e0e0;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
-  --shadow-lg: 0 10px 20px rgba(0,0,0,0.1), 0 6px 6px rgba(0,0,0,0.06);
-  --shadow-xl: 0 20px 40px rgba(0,0,0,0.15);
+  --background: #edf3f9;
+  --foreground: #101722;
+  --primary: #2f8fcd;
+  --primary-dark: #226992;
+  --secondary: #de8a35;
+  --surface: #f9fcff;
+  --surface-variant: #e4edf5;
+  --on-surface: #111a26;
+  --on-surface-variant: #5e6c80;
+  --outline: #c7d5e4;
+  --shadow-sm: 0 2px 5px rgba(12, 24, 37, 0.12);
+  --shadow-md: 0 8px 18px rgba(12, 24, 37, 0.13);
+  --shadow-lg: 0 16px 32px rgba(12, 24, 37, 0.16);
+  --shadow-xl: 0 22px 44px rgba(12, 24, 37, 0.2);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #121212;
-    --foreground: #e0e0e0;
-    --surface: #1e1e1e;
-    --surface-variant: #2d2d2d;
-    --on-surface: #ffffff;
-    --on-surface-variant: #b0b0b0;
-    --outline: #424242;
+    --background: #0d1118;
+    --foreground: #eaf0f7;
+    --surface: #111a24;
+    --surface-variant: #182433;
+    --on-surface: #eff4fb;
+    --on-surface-variant: #97a8bd;
+    --outline: #2a394c;
   }
 }
 
 body.dark-mode {
-  --background: #121212;
-  --foreground: #e0e0e0;
-  --surface: #1e1e1e;
-  --surface-variant: #2d2d2d;
-  --on-surface: #ffffff;
-  --on-surface-variant: #b0b0b0;
-  --outline: #424242;
+  --background: #0d1118;
+  --foreground: #eaf0f7;
+  --surface: #111a24;
+  --surface-variant: #182433;
+  --on-surface: #eff4fb;
+  --on-surface-variant: #97a8bd;
+  --outline: #2a394c;
 }
 
 body.light-mode {
-  --background: #fafafa;
-  --foreground: #1a1a1a;
-  --surface: #ffffff;
-  --surface-variant: #f5f5f5;
-  --on-surface: #212121;
-  --on-surface-variant: #757575;
-  --outline: #e0e0e0;
+  --background: #edf3f9;
+  --foreground: #101722;
+  --surface: #f9fcff;
+  --surface-variant: #e4edf5;
+  --on-surface: #111a26;
+  --on-surface-variant: #5e6c80;
+  --outline: #c7d5e4;
 }
 
 * {
@@ -59,81 +58,97 @@ body.light-mode {
   padding: 0;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at 16% 14%, rgba(130, 185, 228, 0.2), transparent 40%),
+    radial-gradient(circle at 86% 84%, rgba(222, 138, 53, 0.16), transparent 34%),
+    var(--background);
+  font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Leaflet Map Custom Styles */
+.app-shell {
+  background: linear-gradient(145deg, rgba(235, 244, 252, 0.85), rgba(229, 239, 248, 0.72));
+}
+
+body.dark-mode .app-shell {
+  background: linear-gradient(145deg, rgba(15, 23, 34, 0.9), rgba(10, 16, 25, 0.86));
+}
+
 .leaflet-container {
-  background: #f0f4f8;
-  font-family: 'Roboto', sans-serif;
+  background: #dbe8f5;
+  font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif;
+}
+
+body.dark-mode .leaflet-container {
+  background: #121b2a;
 }
 
 .leaflet-popup-content-wrapper {
   border-radius: 16px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
   padding: 0;
   overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .leaflet-popup-content {
   margin: 0;
   padding: 16px;
-  font-family: 'Roboto', sans-serif;
+  font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
 
 .leaflet-popup-tip {
-  background: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Custom Tooltip */
 .custom-leaflet-tooltip {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(249, 252, 255, 0.96) !important;
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(76, 96, 120, 0.16) !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
   padding: 0 !important;
   color: var(--foreground) !important;
-  font-family: 'Roboto', sans-serif !important;
+  font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif !important;
   transition: opacity 0.2s ease, transform 0.2s ease !important;
 }
 
+body.dark-mode .custom-leaflet-tooltip {
+  background: rgba(18, 26, 37, 0.96) !important;
+  border-color: rgba(165, 190, 219, 0.16) !important;
+}
+
 .custom-leaflet-tooltip::before {
-  border-top-color: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: inherit !important;
 }
 
 .leaflet-tooltip-left.custom-leaflet-tooltip::before {
-  border-left-color: rgba(255, 255, 255, 0.95) !important;
+  border-left-color: inherit !important;
 }
 
 .leaflet-tooltip-right.custom-leaflet-tooltip::before {
-  border-right-color: rgba(255, 255, 255, 0.95) !important;
+  border-right-color: inherit !important;
 }
 
 .leaflet-tooltip-bottom.custom-leaflet-tooltip::before {
-  border-bottom-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: inherit !important;
 }
 
-/* Path transitions */
 path.leaflet-interactive {
   transition: fill-opacity 0.3s ease, stroke-width 0.2s ease, stroke 0.2s ease, fill 0.3s ease, opacity 0.2s ease;
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -153,79 +168,32 @@ path.leaflet-interactive {
   background: var(--on-surface);
 }
 
-/* Material Design Elevation Classes */
-.elevation-1 {
-  box-shadow: var(--shadow-sm);
-}
-
-.elevation-2 {
-  box-shadow: var(--shadow-md);
-}
-
-.elevation-3 {
-  box-shadow: var(--shadow-lg);
-}
-
-.elevation-4 {
-  box-shadow: var(--shadow-xl);
-}
-
-/* Animation Utilities */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
 
-.animate-slideInRight {
-  animation: slideInRight 0.4s ease-out;
-}
-
 .animate-slideInUp {
-  animation: slideInUp 0.4s ease-out;
-}
-
-/* Gradient Heatmap Legend */
-.gradient-legend {
-  background: linear-gradient(to right, 
-    rgba(0,0,255,0.8) 0%,
-    rgba(0,255,255,0.8) 25%,
-    rgba(0,255,0,0.8) 50%,
-    rgba(255,255,0,0.8) 75%,
-    rgba(255,0,0,0.8) 100%
-  );
-  height: 12px;
-  border-radius: 6px;
-}
-
-/* Loading Skeleton */
-.skeleton {
-  background: linear-gradient(90deg, 
-    var(--surface-variant) 25%,
-    var(--surface) 50%,
-    var(--surface-variant) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  animation: slideInUp 0.35s ease-out;
 }
 
 @layer utilities {
@@ -234,16 +202,15 @@ path.leaflet-interactive {
   }
 }
 
-/* Mobile Responsive Styles */
 @media (max-width: 640px) {
   .leaflet-container {
     touch-action: pan-x pan-y;
   }
-  
+
   .leaflet-popup-content-wrapper {
     max-width: 200px;
   }
-  
+
   .leaflet-control-zoom {
     display: none;
   }

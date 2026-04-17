@@ -10,13 +10,21 @@ import type {
 } from '@/types'
 
 const BASE_URL = 'https://raw.githubusercontent.com/LDFLK/datasets/main/data/statistics'
+const LDFLK_GIT_TREE_URL = 'https://api.github.com/repos/LDFLK/datasets/git/trees/main?recursive=1'
+const NUUUWAN_ALL_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/all.json'
 const NUUUWAN_BASE_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/sources/cbsl'
-const NUUUWAN_SMALL_CATALOG_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/all.small.json'
 
 const cache = new Map<string, { data: unknown; expires: number }>()
 const CACHE_TTL = 5 * 60 * 1000
+const CATALOG_TTL = 20 * 60 * 1000
 
-function getCached<T>(key: string): T | null {
+interface FetchOptions {
+  forceRefresh?: boolean
+}
+
+function getCached<T>(key: string, forceRefresh = false): T | null {
+  if (forceRefresh) return null
+
   const cached = cache.get(key)
   if (!cached) return null
   if (Date.now() > cached.expires) {
@@ -31,36 +39,36 @@ function setCache(key: string, data: unknown, ttl = CACHE_TTL) {
 }
 
 const DISTRICT_NAME_MAP: Record<string, string> = {
-  'amparai': 'Ampara',
-  'colombo': 'Colombo',
-  'gampaha': 'Gampaha',
-  'kalutara': 'Kalutara',
-  'kandy': 'Kandy',
-  'matale': 'Matale',
+  amparai: 'Ampara',
+  colombo: 'Colombo',
+  gampaha: 'Gampaha',
+  kalutara: 'Kalutara',
+  kandy: 'Kandy',
+  matale: 'Matale',
   'nuwara eliya': 'Nuwara Eliya',
-  'galle': 'Galle',
-  'matara': 'Matara',
-  'hambantota': 'Hambantota',
-  'jaffna': 'Jaffna',
-  'kilinochchi': 'Kilinochchi',
-  'mannar': 'Mannar',
-  'vavuniya': 'Vavuniya',
-  'mullative': 'Mullaitivu',
-  'mullativu': 'Mullaitivu',
-  'mullaitivu': 'Mullaitivu',
-  'batticaloa': 'Batticaloa',
-  'ampara': 'Ampara',
-  'trincomalee': 'Trincomalee',
-  'kurunegala': 'Kurunegala',
-  'puttalam': 'Puttalam',
-  'puttalum': 'Puttalam',
-  'anuradhapura': 'Anuradhapura',
-  'polonnaruwa': 'Polonnaruwa',
-  'badulla': 'Badulla',
-  'monaragala': 'Moneragala', // GeoJSON uses "Moneragala"
-  'ratnapura': 'Ratnapura',
-  'rathnapura': 'Ratnapura', // GeoJSON uses "Ratnapura"
-  'kegalle': 'Kegalle',
+  galle: 'Galle',
+  matara: 'Matara',
+  hambantota: 'Hambantota',
+  jaffna: 'Jaffna',
+  kilinochchi: 'Kilinochchi',
+  mannar: 'Mannar',
+  vavuniya: 'Vavuniya',
+  mullative: 'Mullaitivu',
+  mullativu: 'Mullaitivu',
+  mullaitivu: 'Mullaitivu',
+  batticaloa: 'Batticaloa',
+  ampara: 'Ampara',
+  trincomalee: 'Trincomalee',
+  kurunegala: 'Kurunegala',
+  puttalam: 'Puttalam',
+  puttalum: 'Puttalam',
+  anuradhapura: 'Anuradhapura',
+  polonnaruwa: 'Polonnaruwa',
+  badulla: 'Badulla',
+  monaragala: 'Moneragala',
+  ratnapura: 'Ratnapura',
+  rathnapura: 'Ratnapura',
+  kegalle: 'Kegalle',
 }
 
 function normalizeDistrict(name: string): string {
@@ -69,17 +77,17 @@ function normalizeDistrict(name: string): string {
 }
 
 const PROVINCE_NAME_MAP: Record<string, string> = {
-  'western': 'Western Province',
-  'central': 'Central Province',
-  'southern': 'Southern Province',
-  'northern': 'Northern Province',
-  'eastern': 'Eastern Province',
+  western: 'Western Province',
+  central: 'Central Province',
+  southern: 'Southern Province',
+  northern: 'Northern Province',
+  eastern: 'Eastern Province',
   'north western': 'North Western Province',
   'north central': 'North Central Province',
   'north-western': 'North Western Province',
   'north-central': 'North Central Province',
-  'uva': 'Uva Province',
-  'sabaragamuwa': 'Sabaragamuwa Province',
+  uva: 'Uva Province',
+  sabaragamuwa: 'Sabaragamuwa Province',
 }
 
 function normalizeProvince(name: string): string {
@@ -87,99 +95,154 @@ function normalizeProvince(name: string): string {
   return PROVINCE_NAME_MAP[lower] || name
 }
 
-// --- nuuuwan/lanka_data_timeseries integration ---
-// 90 provincial datasets from CBSL: 9 revenue categories × 9 provinces (+ Total, excluded).
-// Data lives on the `data` branch as timeseries JSON files.
-// Filename: cbsl.Analysis of Revenue Collection of Provincial Councils-{Category}-{Province}.Annual.json
-
-interface NuuuwanTimeseries {
-  source_id: string
-  category: string
-  sub_category: string
-  scale: string
-  unit: string
-  frequency_name: string
-  footnotes: Record<string, string>
-  cleaned_data: Record<string, number>
+function normalizeLocationToken(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/province/g, '')
+    .replace(/district/g, '')
+    .replace(/[()]/g, ' ')
+    .replace(/[\-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-const NUUUWAN_PROVINCES: string[] = [
-  'Central', 'Eastern', 'North-Central', 'North-Western',
-  'Northern', 'Sabaragamuwa', 'Southern', 'Uva', 'Western',
+const CANONICAL_PROVINCE_ALIASES: Array<{ alias: string; canonical: string }> = [
+  { alias: 'western', canonical: 'Western Province' },
+  { alias: 'central', canonical: 'Central Province' },
+  { alias: 'southern', canonical: 'Southern Province' },
+  { alias: 'northern', canonical: 'Northern Province' },
+  { alias: 'eastern', canonical: 'Eastern Province' },
+  { alias: 'north western', canonical: 'North Western Province' },
+  { alias: 'north-western', canonical: 'North Western Province' },
+  { alias: 'north central', canonical: 'North Central Province' },
+  { alias: 'north-central', canonical: 'North Central Province' },
+  { alias: 'uva', canonical: 'Uva Province' },
+  { alias: 'sabaragamuwa', canonical: 'Sabaragamuwa Province' },
 ]
 
-const NUUUWAN_REVENUE_CATEGORIES: string[] = [
-  'Total Revenue',
-  'Excise Duty on Liquor',
-  'Stamp Duty',
-  'Turnover Tax',
-  'Licence Fee - Liquor',
-  'Licence Fee - Vehicles',
-  'Licence Fee - Others',
-  'Profit and Dividends',
-  'Other Revenue',
+const CANONICAL_DISTRICT_ALIASES: Array<{ alias: string; canonical: string }> = Object.entries(DISTRICT_NAME_MAP)
+  .map(([alias, canonical]) => ({ alias, canonical }))
+
+const LOCATION_ALIASES = [
+  ...CANONICAL_PROVINCE_ALIASES.map((entry) => ({ ...entry, level: 'province' as const })),
+  ...CANONICAL_DISTRICT_ALIASES.map((entry) => ({ ...entry, level: 'district' as const })),
 ]
+  .sort((a, b) => b.alias.length - a.alias.length)
 
-function isNuuuwanPath(datasetPath: string): boolean {
-  return datasetPath.startsWith('nuuuwan:')
+interface ResolvedLocation {
+  level: 'province' | 'district'
+  canonicalName: string
+  baseLabel: string
 }
 
-function buildNuuuwanUrl(category: string, province: string): string {
-  const filename = `cbsl.Analysis of Revenue Collection of Provincial Councils-${category}-${province}.Annual.json`
-  return `${NUUUWAN_BASE_URL}/${encodeURIComponent(filename)}`
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-async function fetchNuuuwanTimeseries(category: string, province: string): Promise<NuuuwanTimeseries | null> {
-  const url = buildNuuuwanUrl(category, province)
-  const cacheKey = `nuuuwan-${category}-${province}`
-  const cached = getCached<NuuuwanTimeseries>(cacheKey)
-  if (cached) return cached
+function resolveLocationInSubCategory(subCategory: string): ResolvedLocation | null {
+  const normalized = normalizeLocationToken(subCategory)
 
-  try {
-    const { data } = await axios.get<NuuuwanTimeseries>(url)
-    setCache(cacheKey, data)
-    return data
-  } catch {
-    return null
+  for (const alias of LOCATION_ALIASES) {
+    const normalizedAlias = normalizeLocationToken(alias.alias)
+    const tailPattern = new RegExp(`(?:^|\\s|-)${escapeRegExp(normalizedAlias)}$`, 'i')
+    if (!tailPattern.test(normalized)) {
+      continue
+    }
+
+    const baseLabel = normalized
+      .replace(tailPattern, '')
+      .replace(/[-\s]+$/g, '')
+      .trim()
+
+    if (!baseLabel) {
+      return null
+    }
+
+    return {
+      level: alias.level,
+      canonicalName: alias.level === 'province'
+        ? normalizeProvince(alias.canonical)
+        : normalizeDistrict(alias.canonical),
+      baseLabel,
+    }
   }
+
+  return null
 }
 
-async function fetchNuuuwanProvinceData(year: number, category: string): Promise<ProvinceData[]> {
-  const dateKey = `${year}-01-01`
-
-  const results = await Promise.allSettled(
-    NUUUWAN_PROVINCES.map(async (province) => {
-      const timeseries = await fetchNuuuwanTimeseries(category, province)
-      if (!timeseries) return null
-
-      const value = timeseries.cleaned_data[dateKey]
-      if (value === undefined || value === null) return null
-
-      const normalized = normalizeProvince(province)
-      const entry: ProvinceData = {
-        name: normalized,
-        province: normalized,
-        value: Number(value),
-        originalName: province,
-        originalProvince: province,
-        originalValue: value,
-      }
-      return entry
+function toTitleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .map((part) => {
+      if (!part) return part
+      if (part.length <= 2) return part.toUpperCase()
+      return part[0].toUpperCase() + part.slice(1).toLowerCase()
     })
-  )
-
-  return results
-    .filter((r): r is PromiseFulfilledResult<ProvinceData | null> => r.status === 'fulfilled')
-    .map((r) => r.value)
-    .filter((d): d is ProvinceData => d !== null && d.value > 0)
+    .join(' ')
 }
 
-// LDFLK/datasets audit (2019-2025): the repository currently exposes five map-compatible
-// datasets with Sri Lanka district/province keys. A sixth geo-shaped dataset,
-// `Accommodation Capacity by Resort Region` (2019), is intentionally excluded because its
-// values are tourism resort regions (for example, `East Coast`, `Ancient Cities`) rather
-// than actual province names and therefore cannot be joined to the app's province GeoJSON.
-export const DATASET_MANIFEST: DatasetManifestEntry[] = [
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function inferLevelFromPath(path: string): 'district' | 'province' | 'national' {
+  const normalized = path.toLowerCase()
+  if (normalized.includes('district')) return 'district'
+  if (normalized.includes('province')) return 'province'
+  return 'national'
+}
+
+function isAggregateRow(name: string): boolean {
+  const normalized = name.toLowerCase().trim()
+  return normalized === 'total' || normalized === 'all' || normalized === 'sri lanka'
+}
+
+function normalizeMetricName(metric: string): string {
+  return metric
+    .toLowerCase()
+    .replace(/[%()&]/g, ' ')
+    .replace(/housekeeping assistance/g, 'housekeeping assistants')
+    .replace(/housekeeping/g, 'housekeeping')
+    .replace(/other female/g, 'others')
+    .replace(/other male/g, 'others')
+    .replace(/others/g, 'others')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getMetricColumnIndices(columns: string[], valueColumn?: string): number[] {
+  if (!valueColumn) return []
+
+  const exactMatch = columns.findIndex((column) => column.toLowerCase() === valueColumn.toLowerCase())
+  if (exactMatch !== -1) return [exactMatch]
+
+  const normalizedTarget = normalizeMetricName(valueColumn)
+  const normalizedMatches = columns
+    .map((column, index) => ({ column, index, normalized: normalizeMetricName(column) }))
+    .filter(({ normalized }) => normalized === normalizedTarget)
+    .map(({ index }) => index)
+
+  return normalizedMatches
+}
+
+function getNumericValue(row: unknown[], columnIndices: number[], fallbackIndex: number): number {
+  const resolvedIndices = columnIndices.length > 0 ? columnIndices : [fallbackIndex]
+  return resolvedIndices.reduce((sum, index) => sum + (Number(row[index]) || 0), 0)
+}
+
+function inferTabularLevel(columns: string[]): 'district' | 'province' | 'national' {
+  const lower = columns.map((column) => column.toLowerCase())
+  const hasDistrict = lower.some((column) => column.includes('district') && !column.includes('electoral'))
+  if (hasDistrict) return 'district'
+  const hasProvince = lower.some((column) => column.includes('province'))
+  if (hasProvince) return 'province'
+  return 'national'
+}
+
+const FALLBACK_DATASET_MANIFEST: DatasetManifestEntry[] = [
   {
     id: 'accommodations-by-district',
     name: 'Accommodations by District',
@@ -215,110 +278,9 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
     unit: 'registrations',
     level: 'district',
     path: 'datasets/SLBFE Registration by District',
-    yearPaths: {
-      2020: 'datasets/SLBFE Registration by District vs Manpower Level vs Gender',
-      2021: 'datasets/SLBFE Registration by District vs Manpower Level vs Gender',
-      2022: 'datasets/SLBFE registration by district vs manpower level vs gender',
-      2023: 'datasets/SLBFE Registration by District vs Manpower Level vs Gender',
-    },
     years: [2020, 2021, 2022, 2023, 2024],
-    metrics: [
-      'Professional Female',
-      'Professional Male',
-      'Skilled Female',
-      'Skilled Male',
-      'Semi Skilled Domestic Housekeeping Assistants',
-      'Semi Skilled Domestic HouseKeeping Assistance',
-      'Semi Skilled Others',
-      'Semi Skilled Other Female',
-      'Semi Skilled Other Male',
-      'Middle Level Female',
-      'Middle Level Male',
-      'Clerical & Related Female',
-      'Clerical & Related Male',
-      'Low Skilled Female',
-      'Low Skilled Male',
-    ],
+    metrics: ['Skilled Female'],
     defaultMetric: 'Skilled Female',
-    yearMetrics: {
-      2024: ['Female', 'Male'],
-      2023: [
-        'Professional Female',
-        'Professional Male',
-        'Skilled Female',
-        'Skilled Male',
-        'Semi Skilled Domestic Housekeeping Assistants',
-        'Semi Skilled Others',
-        'Middle Level Female',
-        'Middle Level Male',
-        'Clerical & Related Female',
-        'Clerical & Related Male',
-        'Low Skilled Female',
-        'Low Skilled Male',
-      ],
-      2022: [
-        'Professional Female',
-        'Professional Male',
-        'Skilled Female',
-        'Skilled Male',
-        'Semi Skilled Domestic Housekeeping Assistants',
-        'Semi Skilled Others',
-        'Middle Level Female',
-        'Middle Level Male',
-        'Clerical & Related Female',
-        'Clerical & Related Male',
-        'Low Skilled Female',
-        'Low Skilled Male',
-      ],
-      2021: [
-        'Professional Female',
-        'Professional Male',
-        'Skilled Female',
-        'Skilled Male',
-        'Semi Skilled Domestic Housekeeping Assistants',
-        'Semi Skilled Others',
-        'Middle Level Female',
-        'Middle Level Male',
-        'Clerical & Related Female',
-        'Clerical & Related Male',
-        'Low Skilled Female',
-        'Low Skilled Male',
-      ],
-      2020: [
-        'Professional Female',
-        'Professional Male',
-        'Skilled Female',
-        'Skilled Male',
-        'Semi Skilled Domestic HouseKeeping Assistance',
-        'Semi Skilled Other Female',
-        'Semi Skilled Other Male',
-        'Middle Level Female',
-        'Middle Level Male',
-        'Clerical & Related Female',
-        'Clerical & Related Male',
-        'Low Skilled Female',
-        'Low Skilled Male',
-      ],
-    },
-    yearDefaultMetric: {
-      2024: 'Female',
-      2023: 'Skilled Female',
-      2022: 'Skilled Female',
-      2021: 'Skilled Female',
-      2020: 'Skilled Female',
-    },
-  },
-  {
-    id: 'accommodation-capacity-by-district',
-    name: 'Accommodation Capacity by District',
-    description: 'Accommodation capacity by district.',
-    source: 'ldflk',
-    unit: 'rooms',
-    level: 'district',
-    path: 'datasets/Accommodation Capacity by District',
-    years: [2019],
-    metrics: ['Number of Rooms'],
-    defaultMetric: 'Number of Rooms',
   },
   {
     id: 'accommodations-by-province',
@@ -335,95 +297,456 @@ export const DATASET_MANIFEST: DatasetManifestEntry[] = [
   {
     id: 'cbsl-provincial-revenue',
     name: 'Provincial Revenue (CBSL)',
-    description: 'Revenue collection of provincial councils (Rs. Mn) — CBSL timeseries.',
+    description: 'Revenue collection of provincial councils (Rs. Mn).',
     source: 'nuuuwan',
     secondarySource: 'CBSL',
     unit: 'Rs. Mn',
     level: 'province',
     path: 'nuuuwan:cbsl-provincial-revenue',
-    years: [
-      1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-      2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019,
-      2020, 2021,
-    ],
-    metrics: NUUUWAN_REVENUE_CATEGORIES,
+    years: [2018, 2019, 2020, 2021],
+    metrics: ['Total Revenue'],
     defaultMetric: 'Total Revenue',
   },
 ]
 
-export const AVAILABLE_DATASETS = DATASET_MANIFEST
+let datasetManifestState: DatasetManifestEntry[] = [...FALLBACK_DATASET_MANIFEST]
+let catalogLastSyncedAt: number | null = null
+let catalogCounts = { total: FALLBACK_DATASET_MANIFEST.length, ldflk: 4, nuuuwan: 1 }
 
-function getDatasetManifestEntry(year: number, datasetPath: string): DatasetManifestEntry | undefined {
-  return DATASET_MANIFEST.find((entry) => {
-    const resolvedPath = entry.yearPaths?.[year] ?? entry.path
-    return resolvedPath === datasetPath || entry.path === datasetPath
+interface LdfTreeEntry {
+  path: string
+  type: 'blob' | 'tree'
+}
+
+interface LdfTreeResponse {
+  tree: LdfTreeEntry[]
+}
+
+interface NuuuwanRawSeries {
+  source_id?: string
+  category?: string
+  sub_category?: string
+  scale?: string
+  cleaned_data?: Record<string, number>
+}
+
+interface NuuuwanGroup {
+  key: string
+  sourceId: string
+  category: string
+  baseLabel: string
+  level: 'district' | 'province'
+  unit: string
+  years: number[]
+  valuesByLocation: Record<string, Record<number, number>>
+}
+
+interface NuuuwanCatalogCache {
+  groupsByKey: Record<string, NuuuwanGroup>
+  expiresAt: number
+}
+
+let nuuuwanCatalogCache: NuuuwanCatalogCache | null = null
+
+function sortYearsAscending(values: Iterable<number>): number[] {
+  return Array.from(new Set(values)).sort((a, b) => a - b)
+}
+
+async function fetchNuuuwanGroups(options: FetchOptions = {}): Promise<Record<string, NuuuwanGroup>> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  if (!forceRefresh && nuuuwanCatalogCache && Date.now() < nuuuwanCatalogCache.expiresAt) {
+    return nuuuwanCatalogCache.groupsByKey
+  }
+
+  const cacheKey = 'nuuuwan-all-json'
+  const cached = getCached<NuuuwanRawSeries[]>(cacheKey, forceRefresh)
+  const allSeries = cached ?? (await axios.get<NuuuwanRawSeries[]>(NUUUWAN_ALL_URL)).data
+  if (!cached) {
+    setCache(cacheKey, allSeries, CATALOG_TTL)
+  }
+
+  const grouped = new Map<string, {
+    sourceId: string
+    category: string
+    baseLabel: string
+    level: 'district' | 'province'
+    unit: string
+    years: Set<number>
+    valuesByLocation: Map<string, Record<number, number>>
+  }>()
+
+  allSeries.forEach((series) => {
+    const subCategory = series.sub_category ?? ''
+    const category = series.category ?? 'Uncategorized'
+    const resolved = resolveLocationInSubCategory(subCategory)
+    if (!resolved) {
+      return
+    }
+
+    const rawValues = series.cleaned_data ?? {}
+    const values = Object.entries(rawValues).reduce<Record<number, number>>((acc, [dateKey, value]) => {
+      const year = Number(String(dateKey).slice(0, 4))
+      const numeric = Number(value)
+      if (Number.isFinite(year) && Number.isFinite(numeric)) {
+        acc[year] = numeric
+      }
+      return acc
+    }, {})
+
+    if (Object.keys(values).length === 0) {
+      return
+    }
+
+    const sourceId = (series.source_id ?? 'nuuuwan').toLowerCase()
+    const groupKey = [sourceId, category.trim(), resolved.baseLabel, resolved.level].join('::')
+
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
+        sourceId,
+        category,
+        baseLabel: resolved.baseLabel,
+        level: resolved.level,
+        unit: series.scale || 'value',
+        years: new Set<number>(),
+        valuesByLocation: new Map<string, Record<number, number>>(),
+      })
+    }
+
+    const group = grouped.get(groupKey)
+    if (!group) return
+
+    Object.keys(values)
+      .map((year) => Number(year))
+      .filter((year) => Number.isFinite(year))
+      .forEach((year) => group.years.add(year))
+
+    group.valuesByLocation.set(resolved.canonicalName, values)
   })
+
+  const groupsByKey: Record<string, NuuuwanGroup> = {}
+  grouped.forEach((group, key) => {
+    if (group.valuesByLocation.size < 3) {
+      return
+    }
+
+    groupsByKey[key] = {
+      key,
+      sourceId: group.sourceId,
+      category: group.category,
+      baseLabel: group.baseLabel,
+      level: group.level,
+      unit: group.unit,
+      years: sortYearsAscending(group.years),
+      valuesByLocation: Array.from(group.valuesByLocation.entries()).reduce<Record<string, Record<number, number>>>((acc, [name, values]) => {
+        acc[name] = values
+        return acc
+      }, {}),
+    }
+  })
+
+  nuuuwanCatalogCache = {
+    groupsByKey,
+    expiresAt: Date.now() + CATALOG_TTL,
+  }
+
+  return groupsByKey
 }
 
-function resolveDatasetPath(year: number, datasetPath: string): string {
-  return getDatasetManifestEntry(year, datasetPath)?.yearPaths?.[year] ?? datasetPath
-}
-
-function normalizeMetricName(metric: string): string {
-  return metric
-    .toLowerCase()
-    .replace(/[%()&]/g, ' ')
-    .replace(/housekeeping assistance/g, 'housekeeping assistants')
-    .replace(/housekeeping/g, 'housekeeping')
-    .replace(/other female/g, 'others')
-    .replace(/other male/g, 'others')
-    .replace(/others/g, 'others')
+function buildLdfDatasetName(path: string): string {
+  const segments = path.split('/').filter(Boolean)
+  const leaf = segments[segments.length - 1] ?? path
+  return leaf
     .replace(/\s+/g, ' ')
+    .replace(/\bvs\b/gi, 'vs')
     .trim()
 }
 
-function isAggregateRow(name: string): boolean {
-  const normalized = name.toLowerCase().trim()
-  return normalized === 'total' || normalized === 'all' || normalized === 'sri lanka'
+async function fetchLdfCatalog(options: FetchOptions = {}): Promise<DatasetManifestEntry[]> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  const cacheKey = 'ldflk-tree'
+  const cached = getCached<LdfTreeResponse>(cacheKey, forceRefresh)
+  const treeResponse = cached ?? (await axios.get<LdfTreeResponse>(LDFLK_GIT_TREE_URL)).data
+  if (!cached) {
+    setCache(cacheKey, treeResponse, CATALOG_TTL)
+  }
+
+  const pathMatches = treeResponse.tree
+    .map((entry) => entry.path)
+    .map((path) => {
+      const match = path.match(/^data\/statistics\/(\d{4})\/(.+)\/data\.json$/)
+      if (!match) return null
+      return {
+        year: Number(match[1]),
+        path: match[2],
+      }
+    })
+    .filter((entry): entry is { year: number; path: string } => entry !== null)
+
+  return pathMatches
+    .sort((a, b) => b.year - a.year || a.path.localeCompare(b.path))
+    .map((entry) => {
+      const datasetName = buildLdfDatasetName(entry.path)
+      const level = inferLevelFromPath(entry.path)
+      return {
+        id: `ldflk-${entry.year}-${slugify(entry.path)}`,
+        name: `${datasetName} (${entry.year})`,
+        description: `${datasetName} from LDFLK (${entry.year}).`,
+        source: 'ldflk' as const,
+        unit: 'value',
+        level,
+        path: entry.path,
+        years: [entry.year],
+        metrics: ['Value'],
+        defaultMetric: 'Value',
+        tags: [
+          'live-catalog',
+          level,
+          String(entry.year),
+        ],
+      }
+    })
 }
 
-function getMetricColumnIndices(columns: string[], valueColumn?: string): number[] {
-  if (!valueColumn) return []
-
-  const exactMatch = columns.findIndex((column) => column.toLowerCase() === valueColumn.toLowerCase())
-  if (exactMatch !== -1) return [exactMatch]
-
-  const normalizedTarget = normalizeMetricName(valueColumn)
-  const normalizedMatches = columns
-    .map((column, index) => ({ column, index, normalized: normalizeMetricName(column) }))
-    .filter(({ normalized }) => normalized === normalizedTarget)
-    .map(({ index }) => index)
-
-  return normalizedMatches
+function formatNuuuwanDatasetName(group: NuuuwanGroup): string {
+  const category = group.category.replace(/\s+/g, ' ').trim()
+  const baseLabel = toTitleCase(group.baseLabel)
+  return `${baseLabel} (${category})`
 }
 
-function getRequestedMetric(year: number, datasetPath: string, valueColumn?: string): string | undefined {
+function buildNuuuwanCatalogEntries(groupsByKey: Record<string, NuuuwanGroup>): DatasetManifestEntry[] {
+  return Object.values(groupsByKey)
+    .sort((a, b) => a.category.localeCompare(b.category) || a.baseLabel.localeCompare(b.baseLabel))
+    .map((group) => ({
+      id: `nuuuwan-group-${slugify(group.key)}`,
+      name: formatNuuuwanDatasetName(group),
+      description: `${group.category} by ${group.level}.`,
+      source: 'nuuuwan' as const,
+      secondarySource: group.sourceId.toUpperCase(),
+      unit: group.unit,
+      level: group.level,
+      path: `nuuuwan-group:${encodeURIComponent(group.key)}`,
+      years: group.years,
+      metrics: ['Value'],
+      defaultMetric: 'Value',
+      tags: [
+        'live-catalog',
+        group.level,
+        'timeseries',
+      ],
+    }))
+}
+
+function isNuuuwanGroupPath(datasetPath: string): boolean {
+  return datasetPath.startsWith('nuuuwan-group:')
+}
+
+function getNuuuwanGroupKey(datasetPath: string): string {
+  return decodeURIComponent(datasetPath.replace('nuuuwan-group:', ''))
+}
+
+function isLegacyNuuuwanPath(datasetPath: string): boolean {
+  return datasetPath.startsWith('nuuuwan:')
+}
+
+interface NuuuwanTimeseries {
+  source_id: string
+  category: string
+  sub_category: string
+  scale: string
+  unit: string
+  frequency_name: string
+  footnotes: Record<string, string>
+  cleaned_data: Record<string, number>
+}
+
+const LEGACY_NUUUWAN_PROVINCES: string[] = [
+  'Central', 'Eastern', 'North-Central', 'North-Western',
+  'Northern', 'Sabaragamuwa', 'Southern', 'Uva', 'Western',
+]
+
+const LEGACY_NUUUWAN_REVENUE_CATEGORIES: string[] = [
+  'Total Revenue',
+  'Excise Duty on Liquor',
+  'Stamp Duty',
+  'Turnover Tax',
+  'Licence Fee - Liquor',
+  'Licence Fee - Vehicles',
+  'Licence Fee - Others',
+  'Profit and Dividends',
+  'Other Revenue',
+]
+
+function buildLegacyNuuuwanUrl(category: string, province: string): string {
+  const filename = `cbsl.Analysis of Revenue Collection of Provincial Councils-${category}-${province}.Annual.json`
+  return `${NUUUWAN_BASE_URL}/${encodeURIComponent(filename)}`
+}
+
+async function fetchLegacyNuuuwanTimeseries(category: string, province: string, options: FetchOptions = {}): Promise<NuuuwanTimeseries | null> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  const url = buildLegacyNuuuwanUrl(category, province)
+  const cacheKey = `legacy-nuuuwan-${category}-${province}`
+  const cached = getCached<NuuuwanTimeseries>(cacheKey, forceRefresh)
+  if (cached) return cached
+
+  try {
+    const { data } = await axios.get<NuuuwanTimeseries>(url)
+    setCache(cacheKey, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+async function fetchLegacyNuuuwanProvinceData(year: number, category: string, options: FetchOptions = {}): Promise<ProvinceData[]> {
+  const dateKey = `${year}-01-01`
+
+  const results = await Promise.allSettled(
+    LEGACY_NUUUWAN_PROVINCES.map(async (province) => {
+      const timeseries = await fetchLegacyNuuuwanTimeseries(category, province, options)
+      if (!timeseries) return null
+
+      const value = timeseries.cleaned_data[dateKey]
+      if (value === undefined || value === null) return null
+
+      const normalized = normalizeProvince(province)
+      return {
+        name: normalized,
+        province: normalized,
+        value: Number(value),
+        originalName: province,
+        originalProvince: province,
+        originalValue: value,
+      } as ProvinceData
+    }),
+  )
+
+  return results
+    .filter((result): result is PromiseFulfilledResult<ProvinceData | null> => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter((entry): entry is ProvinceData => entry !== null && entry.value > 0)
+}
+
+export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<DatasetManifestEntry[]> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  const cachedManifest = getCached<DatasetManifestEntry[]>('dataset-catalog', forceRefresh)
+  if (cachedManifest) {
+    datasetManifestState = cachedManifest
+    return cachedManifest
+  }
+
+  try {
+    const [ldflkCatalog, nuuuwanGroups] = await Promise.all([
+      fetchLdfCatalog(options),
+      fetchNuuuwanGroups(options),
+    ])
+
+    const nuuuwanCatalog = buildNuuuwanCatalogEntries(nuuuwanGroups)
+    const manifest = [...ldflkCatalog, ...nuuuwanCatalog]
+
+    datasetManifestState = manifest
+    catalogLastSyncedAt = Date.now()
+    catalogCounts = {
+      total: manifest.length,
+      ldflk: ldflkCatalog.length,
+      nuuuwan: nuuuwanCatalog.length,
+    }
+
+    setCache('dataset-catalog', manifest, CATALOG_TTL)
+    return manifest
+  } catch {
+    return datasetManifestState
+  }
+}
+
+export function getDatasetManifest(): DatasetManifestEntry[] {
+  return datasetManifestState
+}
+
+export function getCatalogMeta() {
+  return {
+    lastSyncedAt: catalogLastSyncedAt,
+    counts: catalogCounts,
+  }
+}
+
+function findManifestEntry(datasetId: string): DatasetManifestEntry | undefined {
+  return datasetManifestState.find((entry) => entry.id === datasetId)
+}
+
+function resolveDatasetPath(year: number, datasetPath: string): string {
+  if (isNuuuwanGroupPath(datasetPath) || isLegacyNuuuwanPath(datasetPath)) {
+    return datasetPath
+  }
+
+  const match = datasetManifestState.find((entry) => entry.path === datasetPath && entry.years.includes(year))
+  if (match?.yearPaths?.[year]) {
+    return match.yearPaths[year]
+  }
+  return match?.path ?? datasetPath
+}
+
+function getRequestedMetric(datasetId: string, year: number, valueColumn?: string): string | undefined {
   if (valueColumn) return valueColumn
-  return getDefaultMetricForYear(getDatasetManifestEntry(year, datasetPath)?.id ?? '', year) || undefined
+  return getDefaultMetricForYear(datasetId, year) || undefined
 }
 
 export function getMetricsForYear(datasetId: string, year: number): string[] {
-  const entry = DATASET_MANIFEST.find((e) => e.id === datasetId)
+  const entry = findManifestEntry(datasetId)
   if (!entry) return []
   return entry.yearMetrics?.[year] ?? entry.metrics
 }
 
 export function getDefaultMetricForYear(datasetId: string, year: number): string {
-  const entry = DATASET_MANIFEST.find((e) => e.id === datasetId)
+  const entry = findManifestEntry(datasetId)
   if (!entry) return ''
   return entry.yearDefaultMetric?.[year] ?? entry.defaultMetric
 }
 
-function getNumericValue(row: unknown[], columnIndices: number[], fallbackIndex: number): number {
-  const resolvedIndices = columnIndices.length > 0 ? columnIndices : [fallbackIndex]
-  const total = resolvedIndices.reduce((sum, index) => sum + (Number(row[index]) || 0), 0)
-  return total
+function inferValueColumnIndex(columns: string[], geographicKeyword: 'district' | 'province'): number {
+  const lowerKeyword = geographicKeyword.toLowerCase()
+  const index = columns.findIndex((column) => {
+    const lower = column.toLowerCase()
+    return !lower.includes(lowerKeyword)
+      && (lower.includes('number') || lower.includes('count') || lower.includes('total') || lower.includes('value'))
+  })
+
+  if (index !== -1) return index
+  return columns.length - 1
 }
 
-export async function fetchDataset(year: number, datasetPath: string): Promise<TabularData> {
+export async function fetchDataset(year: number, datasetPath: string, options: FetchOptions = {}): Promise<TabularData> {
+  const forceRefresh = Boolean(options.forceRefresh)
+
+  if (isNuuuwanGroupPath(datasetPath)) {
+    const key = getNuuuwanGroupKey(datasetPath)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+    if (!group) {
+      return { columns: ['Location', 'Value'], rows: [] }
+    }
+
+    const rows = Object.entries(group.valuesByLocation)
+      .map(([location, values]) => [location, values[year] ?? null])
+      .filter((row) => row[1] !== null)
+
+    return {
+      columns: ['Location', 'Value'],
+      rows,
+    }
+  }
+
+  if (isLegacyNuuuwanPath(datasetPath)) {
+    const category = LEGACY_NUUUWAN_REVENUE_CATEGORIES[0]
+    const provinceRows = await fetchLegacyNuuuwanProvinceData(year, category, options)
+    return {
+      columns: ['Province', category],
+      rows: provinceRows.map((row) => [row.name, row.value]),
+    }
+  }
+
   const resolvedPath = resolveDatasetPath(year, datasetPath)
   const cacheKey = `dataset-${year}-${resolvedPath}`
-  const cached = getCached<TabularData>(cacheKey)
+  const cached = getCached<TabularData>(cacheKey, forceRefresh)
   if (cached) return cached
 
   const url = `${BASE_URL}/${year}/${resolvedPath}/data.json`
@@ -432,10 +755,24 @@ export async function fetchDataset(year: number, datasetPath: string): Promise<T
   return data
 }
 
-export async function fetchMetadata(year: number, datasetPath: string): Promise<DatasetMetadata> {
+export async function fetchMetadata(year: number, datasetPath: string, options: FetchOptions = {}): Promise<DatasetMetadata> {
+  const forceRefresh = Boolean(options.forceRefresh)
+
+  if (isNuuuwanGroupPath(datasetPath)) {
+    const key = getNuuuwanGroupKey(datasetPath)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+
+    return {
+      dataset_name: group ? formatNuuuwanDatasetName(group) : 'Nuuuwan Grouped Dataset',
+      extracted_date: new Date().toISOString(),
+      row_count: group ? Object.keys(group.valuesByLocation).length : 0,
+    }
+  }
+
   const resolvedPath = resolveDatasetPath(year, datasetPath)
   const cacheKey = `metadata-${year}-${resolvedPath}`
-  const cached = getCached<DatasetMetadata>(cacheKey)
+  const cached = getCached<DatasetMetadata>(cacheKey, forceRefresh)
   if (cached) return cached
 
   const url = `${BASE_URL}/${year}/${resolvedPath}/metadata.json`
@@ -444,28 +781,51 @@ export async function fetchMetadata(year: number, datasetPath: string): Promise<
   return data
 }
 
-export async function fetchDistrictData(year: number, datasetPath: string, valueColumn?: string): Promise<DistrictData[]> {
-  const tabular = await fetchDataset(year, datasetPath)
-  const districtCol = tabular.columns.findIndex((c) =>
-    c.toLowerCase().includes('district') && !c.toLowerCase().includes('electoral')
+export async function fetchDistrictData(
+  year: number,
+  datasetPath: string,
+  valueColumn?: string,
+  options: FetchOptions = {},
+): Promise<DistrictData[]> {
+  if (isNuuuwanGroupPath(datasetPath)) {
+    const key = getNuuuwanGroupKey(datasetPath)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+    if (!group || group.level !== 'district') {
+      return []
+    }
+
+    return Object.entries(group.valuesByLocation)
+      .map(([districtName, values]) => ({
+        name: normalizeDistrict(districtName),
+        district: normalizeDistrict(districtName),
+        value: Number(values[year] ?? 0),
+        originalName: districtName,
+        originalDistrict: districtName,
+        originalValue: values[year],
+      }))
+      .filter((row) => row.value > 0)
+  }
+
+  if (isLegacyNuuuwanPath(datasetPath)) {
+    return []
+  }
+
+  const tabular = await fetchDataset(year, datasetPath, options)
+  const districtCol = tabular.columns.findIndex((column) =>
+    column.toLowerCase().includes('district') && !column.toLowerCase().includes('electoral'),
   )
   if (districtCol === -1) return []
 
-  const requestedMetric = getRequestedMetric(year, datasetPath, valueColumn)
+  const dataset = datasetManifestState.find((entry) => entry.path === datasetPath && entry.years.includes(year))
+  const requestedMetric = getRequestedMetric(dataset?.id ?? '', year, valueColumn)
   const metricColumnIndices = getMetricColumnIndices(tabular.columns, requestedMetric)
-  const valueColIdx = requestedMetric
-    ? metricColumnIndices[0] ?? -1
-    : tabular.columns.findIndex((c) =>
-        !c.toLowerCase().includes('district') &&
-        (c.toLowerCase().includes('number') || c.toLowerCase().includes('count') || c.toLowerCase().includes('total'))
-      )
-  const valueCol = valueColIdx !== -1 ? valueColIdx : tabular.columns.length - 1
+  const valueCol = inferValueColumnIndex(tabular.columns, 'district')
 
   return tabular.rows
-    .filter((row) => row[districtCol] && !isAggregateRow(String(row[districtCol])) && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
+    .filter((row) => row[districtCol] && !isAggregateRow(String(row[districtCol])) && (metricColumnIndices.length > 0 || row[valueCol] !== undefined))
     .map((row) => {
       const district = normalizeDistrict(String(row[districtCol]))
-
       return {
         name: district,
         district,
@@ -475,37 +835,55 @@ export async function fetchDistrictData(year: number, datasetPath: string, value
         originalValue: metricColumnIndices.length > 1
           ? metricColumnIndices.map((index) => row[index])
           : row[valueCol],
-      }
+      } as DistrictData
     })
-    .filter((d) => d.value > 0)
+    .filter((entry) => entry.value > 0)
 }
 
-export async function fetchProvinceData(year: number, datasetPath: string, valueColumn?: string): Promise<ProvinceData[]> {
-  if (isNuuuwanPath(datasetPath)) {
-    const entry = DATASET_MANIFEST.find((e) => e.path === datasetPath)
-    const category = valueColumn ?? entry?.defaultMetric ?? NUUUWAN_REVENUE_CATEGORIES[0]
-    return fetchNuuuwanProvinceData(year, category)
+export async function fetchProvinceData(
+  year: number,
+  datasetPath: string,
+  valueColumn?: string,
+  options: FetchOptions = {},
+): Promise<ProvinceData[]> {
+  if (isNuuuwanGroupPath(datasetPath)) {
+    const key = getNuuuwanGroupKey(datasetPath)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+    if (!group || group.level !== 'province') {
+      return []
+    }
+
+    return Object.entries(group.valuesByLocation)
+      .map(([provinceName, values]) => ({
+        name: normalizeProvince(provinceName),
+        province: normalizeProvince(provinceName),
+        value: Number(values[year] ?? 0),
+        originalName: provinceName,
+        originalProvince: provinceName,
+        originalValue: values[year],
+      }))
+      .filter((row) => row.value > 0)
   }
 
-  const tabular = await fetchDataset(year, datasetPath)
-  const provinceCol = tabular.columns.findIndex((c) => c.toLowerCase().includes('province'))
+  if (isLegacyNuuuwanPath(datasetPath)) {
+    const category = valueColumn || LEGACY_NUUUWAN_REVENUE_CATEGORIES[0]
+    return fetchLegacyNuuuwanProvinceData(year, category, options)
+  }
+
+  const tabular = await fetchDataset(year, datasetPath, options)
+  const provinceCol = tabular.columns.findIndex((column) => column.toLowerCase().includes('province'))
   if (provinceCol === -1) return []
 
-  const requestedMetric = getRequestedMetric(year, datasetPath, valueColumn)
+  const dataset = datasetManifestState.find((entry) => entry.path === datasetPath && entry.years.includes(year))
+  const requestedMetric = getRequestedMetric(dataset?.id ?? '', year, valueColumn)
   const metricColumnIndices = getMetricColumnIndices(tabular.columns, requestedMetric)
-  const valueColIdx = requestedMetric
-    ? metricColumnIndices[0] ?? -1
-    : tabular.columns.findIndex((c) =>
-        !c.toLowerCase().includes('province') &&
-        (c.toLowerCase().includes('number') || c.toLowerCase().includes('count') || c.toLowerCase().includes('total'))
-      )
-  const valueCol = valueColIdx !== -1 ? valueColIdx : tabular.columns.length - 1
+  const valueCol = inferValueColumnIndex(tabular.columns, 'province')
 
   return tabular.rows
-    .filter((row) => row[provinceCol] && !isAggregateRow(String(row[provinceCol])) && (metricColumnIndices.length > 0 || (row[valueCol] !== undefined && row[valueCol] !== null)))
+    .filter((row) => row[provinceCol] && !isAggregateRow(String(row[provinceCol])) && (metricColumnIndices.length > 0 || row[valueCol] !== undefined))
     .map((row) => {
       const province = normalizeProvince(String(row[provinceCol]))
-
       return {
         name: province,
         province,
@@ -515,9 +893,9 @@ export async function fetchProvinceData(year: number, datasetPath: string, value
         originalValue: metricColumnIndices.length > 1
           ? metricColumnIndices.map((index) => row[index])
           : row[valueCol],
-      }
+      } as ProvinceData
     })
-    .filter((p) => p.value > 0)
+    .filter((entry) => entry.value > 0)
 }
 
 let geojsonCache: FeatureCollection | null = null
@@ -527,32 +905,57 @@ export interface DatasetSeriesPoint {
   values: Record<number, number>
 }
 
-interface NuuuwanSmallSeries {
-  source_id?: string
-  category?: string
-  sub_category?: string
-  unit?: string
-  frequency_name?: string
-  cleaned_data?: Record<string, number>
-}
-
 export async function fetchDatasetSeries(
   datasetId: string,
   metric?: string,
+  options: FetchOptions = {},
 ): Promise<DatasetSeriesPoint[]> {
-  const dataset = DATASET_MANIFEST.find((entry) => entry.id === datasetId)
+  const dataset = findManifestEntry(datasetId)
   if (!dataset) {
     return []
   }
 
+  if (isNuuuwanGroupPath(dataset.path)) {
+    const key = getNuuuwanGroupKey(dataset.path)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+    if (!group) return []
+
+    return Object.entries(group.valuesByLocation).map(([name, values]) => ({ name, values }))
+  }
+
   const byName = new Map<string, DatasetSeriesPoint>()
+
   const yearRows = await Promise.all(
-    dataset.years.map(async (year) => ({
-      year,
-      rows: dataset.level === 'district'
-        ? await fetchDistrictData(year, dataset.path, metric)
-        : await fetchProvinceData(year, dataset.path, metric),
-    })),
+    dataset.years.map(async (year) => {
+      if (dataset.level === 'district') {
+        const rows = await fetchDistrictData(year, dataset.path, metric, options)
+        return { year, rows }
+      }
+
+      if (dataset.level === 'province') {
+        const rows = await fetchProvinceData(year, dataset.path, metric, options)
+        return { year, rows }
+      }
+
+      const tabular = await fetchDataset(year, dataset.path, options)
+      const labelColumnIndex = tabular.columns.findIndex((column) =>
+        ['district', 'province', 'name', 'category', 'item', 'indicator'].some((keyword) => column.toLowerCase().includes(keyword)),
+      )
+      const safeLabelIndex = labelColumnIndex !== -1 ? labelColumnIndex : 0
+      const numericColumnIndex = tabular.columns.findIndex((column, index) => index !== safeLabelIndex && /value|total|count|number|amount|index/i.test(column))
+      const safeValueIndex = numericColumnIndex !== -1 ? numericColumnIndex : Math.max(1, tabular.columns.length - 1)
+
+      const rows = tabular.rows
+        .filter((row) => row[safeLabelIndex] !== undefined)
+        .map((row) => ({
+          name: String(row[safeLabelIndex]),
+          value: Number(row[safeValueIndex]) || 0,
+        }))
+        .filter((row) => row.name && !isAggregateRow(row.name))
+
+      return { year, rows }
+    }),
   )
 
   yearRows.forEach(({ year, rows }) => {
@@ -566,41 +969,33 @@ export async function fetchDatasetSeries(
   return Array.from(byName.values())
 }
 
-export async function fetchNuuuwanSeriesCatalog(): Promise<NuuuwanSeries[]> {
-  const cacheKey = 'nuuuwan-series-catalog'
-  const cached = getCached<NuuuwanSeries[]>(cacheKey)
-  if (cached) {
-    return cached
+export async function fetchNuuuwanSeriesCatalog(options: FetchOptions = {}): Promise<NuuuwanSeries[]> {
+  const groups = await fetchNuuuwanGroups(options)
+  return Object.values(groups).map((group) => ({
+    id: group.key,
+    label: formatNuuuwanDatasetName(group),
+    source: `nuuuwan (${group.sourceId.toUpperCase()})`,
+    unit: group.unit,
+    frequency: 'Annual',
+    values: {},
+  }))
+}
+
+export async function inferDatasetLevel(year: number, datasetPath: string, options: FetchOptions = {}): Promise<'district' | 'province' | 'national'> {
+  if (isNuuuwanGroupPath(datasetPath)) {
+    const key = getNuuuwanGroupKey(datasetPath)
+    const groups = await fetchNuuuwanGroups(options)
+    const group = groups[key]
+    if (!group) return 'national'
+    return group.level
   }
 
-  const { data } = await axios.get<Record<string, NuuuwanSmallSeries>>(NUUUWAN_SMALL_CATALOG_URL)
-  const series = Object.entries(data).flatMap(([id, rawSeries]) => {
-    const cleaned = rawSeries.cleaned_data ?? {}
-    const values = Object.entries(cleaned).reduce<Record<number, number>>((acc, [date, value]) => {
-      const year = Number(String(date).slice(0, 4))
-      if (Number.isFinite(year) && Number.isFinite(Number(value))) {
-        acc[year] = Number(value)
-      }
-      return acc
-    }, {})
+  if (isLegacyNuuuwanPath(datasetPath)) {
+    return 'province'
+  }
 
-    if (Object.keys(values).length === 0) {
-      return []
-    }
-
-    const label = rawSeries.sub_category || rawSeries.category || id
-    return [{
-      id,
-      label,
-      source: rawSeries.source_id ? `nuuuwan (${rawSeries.source_id.toUpperCase()})` : 'nuuuwan',
-      unit: rawSeries.unit,
-      frequency: rawSeries.frequency_name,
-      values,
-    }]
-  })
-
-  setCache(cacheKey, series, 60 * 60 * 1000)
-  return series
+  const dataset = await fetchDataset(year, datasetPath, options)
+  return inferTabularLevel(dataset.columns)
 }
 
 export async function loadGeoJSON(): Promise<FeatureCollection> {

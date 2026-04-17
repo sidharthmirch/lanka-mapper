@@ -2,28 +2,43 @@
 
 import { create } from 'zustand'
 import { persist, devtools } from 'zustand/middleware'
-import type { AppTab, ColorScale, VisualizationMode, LatLngTuple, MapData, TabularData, ThemeMode } from '@/types'
+import type { AppTab, ColorScale, VisualizationMode, LatLngTuple, MapData, TabularData, ThemeMode, DatasetManifestEntry } from '@/types'
 import {
-  fetchDistrictData,
+  fetchDataset,
+  fetchDatasetCatalog,
   fetchDatasetSeries,
+  fetchDistrictData,
   fetchProvinceData,
-  AVAILABLE_DATASETS,
-  DATASET_MANIFEST,
-  getMetricsForYear,
+  getCatalogMeta,
   getDefaultMetricForYear,
+  getMetricsForYear,
+  inferDatasetLevel,
 } from '@/services/dataService'
+
+interface LoadDatasetOptions {
+  forceRefresh?: boolean
+}
 
 interface AppState {
   mapCenter: LatLngTuple
   zoom: number
   selectedDistrict: string | null
   selectedProvince: string | null
-  
+
+  datasetManifest: DatasetManifestEntry[]
+  catalogLoading: boolean
+  lastCatalogSync: number | null
+  catalogCounts: {
+    total: number
+    ldflk: number
+    nuuuwan: number
+  }
+
   currentDataset: string | null
   currentYear: number
   data: MapData[] | null
   selectedMetric: string | null
-  currentDatasetLevel: 'district' | 'province' | null
+  currentDatasetLevel: 'district' | 'province' | 'national' | null
   currentDatasetSource: 'ldflk' | 'nuuuwan' | null
   currentDatasetSecondarySource: string | null
   currentDatasetUnit: string | null
@@ -32,7 +47,7 @@ interface AppState {
   seriesData: Record<string, Record<number, number>>
   loading: boolean
   error: string | null
-  
+
   sidebarOpen: boolean
   visualizationMode: VisualizationMode
   showChoropleth: boolean
@@ -41,12 +56,13 @@ interface AppState {
   colorScale: ColorScale
   showTooltips: boolean
   themeMode: ThemeMode
-  
+
   setMapCenter: (center: LatLngTuple) => void
   setZoom: (zoom: number) => void
   selectDistrict: (district: string | null) => void
   selectProvince: (province: string | null) => void
-  loadDataset: (datasetId: string, year: number, metric?: string) => Promise<void>
+  initializeCatalog: (forceRefresh?: boolean) => Promise<void>
+  loadDataset: (datasetId: string, year: number, metric?: string, options?: LoadDatasetOptions) => Promise<void>
   setSelectedMetric: (metric: string) => void
   setVisualizationMode: (mode: VisualizationMode) => void
   setShowChoropleth: (show: boolean) => void
@@ -62,7 +78,7 @@ interface AppState {
 const DEFAULT_COLOR_SCALE: ColorScale = {
   min: 0,
   max: 100,
-  colors: ['#e3f2fd', '#90caf9', '#42a5f5', '#1e88e5', '#1565c0', '#0d47a1'],
+  colors: ['#f2f3f5', '#c0d8f5', '#7cb3e8', '#3d8fd6', '#1f68ad', '#17457a'],
 }
 
 const SRI_LANKA_CENTER: LatLngTuple = [7.8731, 80.7718]
@@ -81,6 +97,13 @@ const PROVINCE_TO_DISTRICTS: Record<string, string[]> = {
   'Sabaragamuwa Province': ['Ratnapura', 'Kegalle'],
 }
 
+function pickDefaultDataset(manifest: DatasetManifestEntry[]): DatasetManifestEntry | null {
+  if (manifest.length === 0) return null
+
+  const mapFriendly = manifest.find((dataset) => dataset.level !== 'national')
+  return mapFriendly ?? manifest[0]
+}
+
 export const useAppStore = create<AppState>()(
   devtools(
     persist(
@@ -89,9 +112,18 @@ export const useAppStore = create<AppState>()(
         zoom: 8,
         selectedDistrict: null,
         selectedProvince: null,
-        
+
+        datasetManifest: [],
+        catalogLoading: false,
+        lastCatalogSync: null,
+        catalogCounts: {
+          total: 0,
+          ldflk: 0,
+          nuuuwan: 0,
+        },
+
         currentDataset: null,
-        currentYear: 2024,
+        currentYear: new Date().getFullYear(),
         data: null,
         selectedMetric: null,
         currentDatasetLevel: null,
@@ -103,7 +135,7 @@ export const useAppStore = create<AppState>()(
         seriesData: {},
         loading: false,
         error: null,
-        
+
         sidebarOpen: true,
         visualizationMode: 'choropleth',
         showChoropleth: true,
@@ -112,14 +144,51 @@ export const useAppStore = create<AppState>()(
         colorScale: DEFAULT_COLOR_SCALE,
         showTooltips: true,
         themeMode: 'system',
-        
+
         setMapCenter: (center) => set({ mapCenter: center }),
         setZoom: (zoom) => set({ zoom }),
         selectDistrict: (district) => set({ selectedDistrict: district, selectedProvince: null }),
         selectProvince: (province) => set({ selectedProvince: province, selectedDistrict: null }),
-        
-        loadDataset: async (datasetId, year, metric) => {
-          const dataset = AVAILABLE_DATASETS.find(d => d.id === datasetId)
+
+        initializeCatalog: async (forceRefresh = false) => {
+          set({ catalogLoading: true, error: null })
+
+          try {
+            const manifest = await fetchDatasetCatalog({ forceRefresh })
+            const meta = getCatalogMeta()
+            const activeDatasetId = get().currentDataset
+            const resolvedActiveDataset = activeDatasetId
+              ? manifest.find((dataset) => dataset.id === activeDatasetId)
+              : null
+            const fallbackDataset = pickDefaultDataset(manifest)
+            const datasetToLoad = resolvedActiveDataset ?? fallbackDataset
+
+            set({
+              datasetManifest: manifest,
+              catalogLoading: false,
+              lastCatalogSync: meta.lastSyncedAt,
+              catalogCounts: meta.counts,
+            })
+
+            if (!datasetToLoad) {
+              return
+            }
+
+            const nextYear = datasetToLoad.years.includes(get().currentYear)
+              ? get().currentYear
+              : datasetToLoad.years[datasetToLoad.years.length - 1]
+
+            await get().loadDataset(datasetToLoad.id, nextYear, get().selectedMetric ?? undefined, { forceRefresh })
+          } catch (err) {
+            set({
+              catalogLoading: false,
+              error: err instanceof Error ? err.message : 'Failed to load live dataset catalog',
+            })
+          }
+        },
+
+        loadDataset: async (datasetId, year, metric, options = {}) => {
+          const dataset = get().datasetManifest.find((entry) => entry.id === datasetId)
           if (!dataset) {
             set({ error: 'Dataset not found', loading: false })
             return
@@ -135,9 +204,8 @@ export const useAppStore = create<AppState>()(
             ? requestedMetric
             : getDefaultMetricForYear(datasetId, supportedYear)
 
-          // Increment request ID — any older in-flight response will be ignored
           const requestId = ++_loadRequestId
-          
+
           set({
             loading: true,
             error: null,
@@ -149,16 +217,23 @@ export const useAppStore = create<AppState>()(
             currentYear: supportedYear,
             selectedMetric,
             currentDatasetLevel: dataset.level,
-            currentDatasetSource: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.source ?? null,
-            currentDatasetSecondarySource: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.secondarySource ?? null,
-            currentDatasetUnit: DATASET_MANIFEST.find((entry) => entry.id === datasetId)?.unit ?? null,
+            currentDatasetSource: dataset.source,
+            currentDatasetSecondarySource: dataset.secondarySource ?? null,
+            currentDatasetUnit: dataset.unit,
             availableMetrics,
           })
-          
+
           try {
-            let data: MapData[]
-            if (dataset.level === 'district') {
-              const districtData = await fetchDistrictData(supportedYear, dataset.path, selectedMetric)
+            const levelHint = dataset.level
+            let resolvedLevel: 'district' | 'province' | 'national' = levelHint
+            let data: MapData[] = []
+
+            const districtData = (levelHint === 'district' || levelHint === 'national')
+              ? await fetchDistrictData(supportedYear, dataset.path, selectedMetric, options)
+              : []
+
+            if (districtData.length > 0) {
+              resolvedLevel = 'district'
               data = districtData.map((district) => ({
                 name: district.name,
                 district: district.district,
@@ -166,75 +241,67 @@ export const useAppStore = create<AppState>()(
                 originalName: district.originalName,
                 originalValue: district.originalValue,
               }))
-            } else {
-              const provinceData = await fetchProvinceData(supportedYear, dataset.path, selectedMetric)
-              const expanded: MapData[] = []
-
-              for (const province of provinceData) {
-                const districts = PROVINCE_TO_DISTRICTS[province.name] || []
-
-                for (const district of districts) {
-                  expanded.push({
-                    name: district,
-                    district,
-                    value: province.value,
-                    originalName: province.originalName,
-                    originalValue: province.originalValue,
-                  })
-                }
-              }
-
-              data = expanded
-
-              const provinceValues = provinceData.map((province) => province.value)
-              const colorScale: ColorScale = {
-                min: provinceValues.length > 0 ? Math.min(...provinceValues) : DEFAULT_COLOR_SCALE.min,
-                max: provinceValues.length > 0 ? Math.max(...provinceValues) : DEFAULT_COLOR_SCALE.max,
-                colors: DEFAULT_COLOR_SCALE.colors,
-              }
-
-              const shouldLoadSeries = get().currentTab === 'timeseries'
-              const rawSeries = shouldLoadSeries ? await fetchDatasetSeries(datasetId, selectedMetric) : []
-              const seriesData = rawSeries.reduce<Record<string, Record<number, number>>>((acc, point) => {
-                acc[point.name] = point.values
-                return acc
-              }, {})
-
-              const tableData: TabularData = {
-                columns: ['Name', 'Value'],
-                rows: provinceData.map((item) => [item.originalName ?? item.name, item.value]),
-              }
-
-              if (requestId !== _loadRequestId) return
-              set({ data, loading: false, colorScale, tableData, seriesData })
-              return
             }
-            
-            const values = data.map(d => d.value)
+
+            if (data.length === 0 && (levelHint === 'province' || levelHint === 'national')) {
+              const provinceData = await fetchProvinceData(supportedYear, dataset.path, selectedMetric, options)
+              if (provinceData.length > 0) {
+                resolvedLevel = 'province'
+                const expanded: MapData[] = []
+
+                for (const province of provinceData) {
+                  const districts = PROVINCE_TO_DISTRICTS[province.name] || []
+                  for (const district of districts) {
+                    expanded.push({
+                      name: district,
+                      district,
+                      value: province.value,
+                      originalName: province.originalName,
+                      originalValue: province.originalValue,
+                    })
+                  }
+                }
+
+                data = expanded
+              }
+            }
+
+            if (data.length === 0 && levelHint === 'national') {
+              resolvedLevel = await inferDatasetLevel(supportedYear, dataset.path, options)
+            }
+
+            const values = data.map((entry) => entry.value)
             const colorScale: ColorScale = {
               min: values.length > 0 ? Math.min(...values) : DEFAULT_COLOR_SCALE.min,
               max: values.length > 0 ? Math.max(...values) : DEFAULT_COLOR_SCALE.max,
               colors: DEFAULT_COLOR_SCALE.colors,
             }
-            
-            const tableData = {
-              columns: ['Name', 'Value'],
-              rows: data.map((item) => [item.originalName ?? item.name, item.value]),
-            }
+
+            const tableData = await fetchDataset(supportedYear, dataset.path, options)
 
             const shouldLoadSeries = get().currentTab === 'timeseries'
-            const rawSeries = shouldLoadSeries ? await fetchDatasetSeries(datasetId, selectedMetric) : []
+            const rawSeries = shouldLoadSeries
+              ? await fetchDatasetSeries(datasetId, selectedMetric, options)
+              : []
             const seriesData = rawSeries.reduce<Record<string, Record<number, number>>>((acc, point) => {
               acc[point.name] = point.values
               return acc
             }, {})
 
             if (requestId !== _loadRequestId) return
-            set({ data, loading: false, colorScale, tableData, seriesData })
+
+            set({
+              data,
+              loading: false,
+              colorScale,
+              tableData,
+              seriesData,
+              currentDatasetLevel: resolvedLevel,
+            })
           } catch (err) {
             if (requestId !== _loadRequestId) return
-            set({ 
-              error: err instanceof Error ? err.message : 'Failed to load dataset', 
+            set({
+              error: err instanceof Error ? err.message : 'Failed to load dataset',
               loading: false,
               data: null,
               colorScale: DEFAULT_COLOR_SCALE,
@@ -250,7 +317,7 @@ export const useAppStore = create<AppState>()(
             void get().loadDataset(currentDataset, currentYear, metric)
           }
         },
-        
+
         setVisualizationMode: (mode) => set({ visualizationMode: mode }),
         setShowChoropleth: (show) => set({ showChoropleth: show }),
         setShowCentroids: (show) => set({ showCentroids: show }),
@@ -277,11 +344,12 @@ export const useAppStore = create<AppState>()(
           currentYear: state.currentYear,
           selectedMetric: state.selectedMetric,
           themeMode: state.themeMode,
+          currentDataset: state.currentDataset,
         }),
-      }
+      },
     ),
-    { name: 'SriLankaStore' }
-  )
+    { name: 'SriLankaStore' },
+  ),
 )
 
 export const useMapState = () => useAppStore((state) => ({
@@ -305,6 +373,10 @@ export const useDataState = () => useAppStore((state) => ({
   seriesData: state.seriesData,
   loading: state.loading,
   error: state.error,
+  datasetManifest: state.datasetManifest,
+  catalogLoading: state.catalogLoading,
+  lastCatalogSync: state.lastCatalogSync,
+  catalogCounts: state.catalogCounts,
 }))
 
 export const useUIState = () => useAppStore((state) => ({

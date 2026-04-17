@@ -42,7 +42,7 @@ export interface DatasetManifestEntry {
   source: 'ldflk' | 'nuuuwan'
   secondarySource?: string
   unit: string
-  level: 'district' | 'province'
+  level: 'district' | 'province' | 'national'
   path: string
   yearPaths?: Record<number, string>
   years: number[]
@@ -50,6 +50,7 @@ export interface DatasetManifestEntry {
   defaultMetric: string
   yearMetrics?: Record<number, string[]>
   yearDefaultMetric?: Record<number, string>
+  tags?: string[]
 }
 
 export interface TabularData {
