@@ -35,7 +35,7 @@ test('T3: Dataset dropdown is searchable and populated', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await page.getByPlaceholder('Search 150+ datasets').fill('province')
+  await page.getByPlaceholder('Search to open a dataset…').fill('province')
   await page.locator('div[role="combobox"]').first().click()
   await page.waitForSelector('[role="listbox"]')
 
@@ -65,9 +65,9 @@ test('T5: Sync controls and source chips are visible', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await expect(page.getByRole('button', { name: 'Sync now' })).toBeVisible({ timeout: 10000 })
+  await expect(page.getByRole('button', { name: 'Sync' })).toBeVisible({ timeout: 10000 })
   await expect(page.locator('text=/LDFLK\\s+\\d+/')).toBeVisible({ timeout: 10000 })
-  await expect(page.locator('text=/nuuuwan\\s+\\d+/')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('text=/LDS\\s+\\d+/')).toBeVisible({ timeout: 10000 })
 
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 't5-sync-and-sources.png') })
 })

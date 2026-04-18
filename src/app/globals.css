@@ -8,16 +8,24 @@
   --foreground: #101722;
   --primary: #2f8fcd;
   --primary-dark: #226992;
+  --primary-light: #79bde8;
+  /* Default ocean ramp (overwritten when region shading preset changes) */
+  --gradient-0: #dfe8f4;
+  --gradient-1: #c0d8f5;
+  --gradient-2: #7cb3e8;
+  --gradient-3: #3d8fd6;
+  --gradient-4: #1f68ad;
+  --gradient-5: #17457a;
   --secondary: #de8a35;
   --surface: #f9fcff;
   --surface-variant: #e4edf5;
   --on-surface: #111a26;
   --on-surface-variant: #5e6c80;
   --outline: #c7d5e4;
-  --shadow-sm: 0 2px 5px rgba(12, 24, 37, 0.12);
-  --shadow-md: 0 8px 18px rgba(12, 24, 37, 0.13);
-  --shadow-lg: 0 16px 32px rgba(12, 24, 37, 0.16);
-  --shadow-xl: 0 22px 44px rgba(12, 24, 37, 0.2);
+  --shadow-sm: 0 4px 12px rgba(12, 24, 37, 0.08);
+  --shadow-md: 0 12px 24px rgba(12, 24, 37, 0.10);
+  --shadow-lg: 0 20px 40px rgba(12, 24, 37, 0.12);
+  --shadow-xl: 0 28px 56px rgba(12, 24, 37, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -75,11 +83,11 @@ body {
 }
 
 .app-shell {
-  background: linear-gradient(145deg, rgba(235, 244, 252, 0.85), rgba(229, 239, 248, 0.72));
+  background: linear-gradient(145deg, rgba(235, 244, 252, 0.65), rgba(229, 239, 248, 0.45));
 }
 
 body.dark-mode .app-shell {
-  background: linear-gradient(145deg, rgba(15, 23, 34, 0.9), rgba(10, 16, 25, 0.86));
+  background: linear-gradient(145deg, rgba(15, 23, 34, 0.75), rgba(10, 16, 25, 0.65));
 }
 
 .leaflet-container {
@@ -113,19 +121,21 @@ body.dark-mode .leaflet-container {
 }
 
 .custom-leaflet-tooltip {
-  background: rgba(249, 252, 255, 0.96) !important;
-  backdrop-filter: blur(8px);
+  background: rgba(249, 252, 255, 0.88) !important;
+  backdrop-filter: blur(16px);
   border: 1px solid rgba(76, 96, 120, 0.16) !important;
   border-radius: 12px !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
   padding: 0 !important;
+  max-width: min(320px, calc(100vw - 32px)) !important;
+  overflow: hidden !important;
   color: var(--foreground) !important;
   font-family: var(--font-sans), 'Avenir Next', 'Segoe UI', sans-serif !important;
   transition: opacity 0.2s ease, transform 0.2s ease !important;
 }
 
 body.dark-mode .custom-leaflet-tooltip {
-  background: rgba(18, 26, 37, 0.96) !important;
+  background: rgba(18, 26, 37, 0.88) !important;
   border-color: rgba(165, 190, 219, 0.16) !important;
 }
 
@@ -199,6 +209,14 @@ path.leaflet-interactive {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
   }
 }
 

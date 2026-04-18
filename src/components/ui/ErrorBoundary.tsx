@@ -48,8 +48,11 @@ export default class ErrorBoundary extends Component<Props, State> {
               variant="contained"
               color="primary"
               onClick={() => {
+                // Soft reset: clearing the boundary is enough to re-mount
+                // the children and preserve sidebar / tab / playback state.
+                // A full page reload should stay reserved for genuinely
+                // unrecoverable failures.
                 this.setState({ hasError: false, error: null })
-                window.location.reload()
               }}
             >
               Try Again

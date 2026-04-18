@@ -25,16 +25,6 @@ export interface DistrictFeature {
   }
 }
 
-/**
- * Metadata describing a dataset sourced from the LDFLK datasets repository.
- */
-export interface DatasetMetadata {
-  dataset_name: string
-  extracted_date: string
-  row_count: number
-  [key: string]: unknown
-}
-
 export interface DatasetManifestEntry {
   id: string
   name: string
@@ -51,6 +41,12 @@ export interface DatasetManifestEntry {
   yearMetrics?: Record<number, string[]>
   yearDefaultMetric?: Record<number, string>
   tags?: string[]
+  hasGeo: boolean
+  hasTime: boolean
+  citation?: string
+  citationUrl?: string
+  /** Sub-series / entity labels (e.g. nuuuwan sub_category) for catalog search */
+  searchHints?: string[]
 }
 
 export interface TabularData {
@@ -81,18 +77,8 @@ export interface ProvinceData {
   originalValue?: unknown
 }
 
-export type VisualizationMode = 'choropleth' | 'heatmap'
-export type AppTab = 'map' | 'timeseries' | 'table'
+export type AppTab = 'map' | 'plots' | 'table' | 'sources'
 export type ThemeMode = 'light' | 'dark' | 'system'
-
-export interface NuuuwanSeries {
-  id: string
-  label: string
-  source: string
-  unit?: string
-  frequency?: string
-  values: Record<number, number>
-}
 
 export interface ColorScale {
   min: number
@@ -100,45 +86,3 @@ export interface ColorScale {
   colors: string[]
 }
 
-export type HeatmapPoint = [lat: number, lng: number, intensity: number]
-
-export interface TooltipData {
-  title: string
-  values: {
-    label: string
-    value: string | number
-  }[]
-}
-
-export interface MapState {
-  center: LatLngTuple
-  zoom: number
-  selectedDistrict: string | null
-}
-
-export interface DataState {
-  currentDataset: string | null
-  year: number
-  loading: boolean
-  error: string | null
-}
-
-export interface UIState {
-  sidebarOpen: boolean
-  visualizationMode: VisualizationMode
-}
-
-export interface DatasetConfig {
-  id: string
-  name: string
-  description: string
-  years: number[]
-  geographicLevel: 'district' | 'province' | 'place'
-}
-
-export interface MapConfig {
-  center: LatLngTuple
-  zoom: number
-  minZoom: number
-  maxZoom: number
-}
