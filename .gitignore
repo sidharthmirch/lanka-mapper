@@ -10,3 +10,9 @@ tsconfig.tsbuildinfo
 .sisyphus/
 .cursor/
 package-lock 2.json
+
+# Ignore Copilot CLI local codex state
+.codex/
+
+# Local agents / session files
+AGENTS.md
