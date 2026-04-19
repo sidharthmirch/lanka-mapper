@@ -1,6 +1,4 @@
-# Lanka Mapper
-
-Lanka Mapper aggregates Sri Lankan datasets and plots them in an interactive map and chart view.
+This project aggregates Sri Lankan datasets and plots them in an interactive web view.
 
 Credits
 
