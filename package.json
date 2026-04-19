@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "export": "next build && next export",
-    "start": "next start",
+    "export": "next build",
+    "start": "python3 -m http.server 3000 --directory out",
     "lint": "next lint",
     "test": "vitest run",
     "build-provinces": "node scripts/build-province-geojson.mjs",

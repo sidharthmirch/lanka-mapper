@@ -49,6 +49,7 @@ type ProvinceFeature = Feature<Geometry, ProvinceProperties>
 
 const SRI_LANKA_CENTER: [number, number] = [7.8731, 80.7718]
 const DEFAULT_ZOOM = 8
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
 function getColorForValue(value: number, scale: ColorScale): string {
   const { min, max, colors } = scale
@@ -305,7 +306,7 @@ export default function SriLankaMap({
       return
     }
     let cancelled = false
-    void fetch('/data/sri-lanka-provinces.geojson')
+    void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-provinces.geojson`)
       .then((res) => res.json() as Promise<FeatureCollection<Geometry, ProvinceProperties>>)
       .then((collection) => {
         if (!cancelled) setProvinceGeojson(collection)
@@ -324,7 +325,7 @@ export default function SriLankaMap({
       return
     }
     let cancelled = false
-    void fetch('/data/sri-lanka-districts.geojson')
+    void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-districts.geojson`)
       .then((res) => res.json() as Promise<FeatureCollection<Geometry, DistrictProperties>>)
       .then((collection) => {
         if (!cancelled) setDistrictGeojson(collection)
