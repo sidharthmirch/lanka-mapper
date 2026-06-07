@@ -223,6 +223,31 @@ function inferLevelFromPath(path: string): 'district' | 'province' | 'national' 
   return 'national'
 }
 
+/**
+ * LDFLK datasets are discovered from the git tree (paths only), so the real
+ * value column / unit isn't known until a dataset is opened. Infer a sensible,
+ * conservative unit from the dataset name so the legend, tooltips, and sidebar
+ * show a real unit instead of nothing.
+ *
+ * We deliberately never guess a *magnitude* (Mn./Bn.) for currency: guessing a
+ * scale would risk silently multiplying values during compact display. Currency
+ * is labelled "Rs" with no scale, so values render exactly as stored.
+ * Unknowns return '' (treated as no-unit), which is cleaner than the old
+ * placeholder 'value'.
+ */
+function inferLdflkUnit(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('%') || /\b(rate|ratio|occupancy|percentage|percent)\b/.test(n)) return '%'
+  if (/\b(rooms?|accommodation|accommodations)\b/.test(n)) return 'rooms'
+  if (/\b(registration|registrations|registered)\b/.test(n)) return 'registrations'
+  if (/\b(population|persons?|people|inhabitants?)\b/.test(n)) return 'persons'
+  if (/\b(students?|enrol|enrolment|enrollment)\b/.test(n)) return 'students'
+  if (/\b(revenue|income|expenditure|gdp|gnp|turnover|salary|salaries|wages?|earnings|loans?|deposits?|rupees?|lkr|rs)\b/.test(n)) return 'Rs'
+  if (/\b(tonnes?|tons?|metric tons?|mt)\b/.test(n)) return 'tonnes'
+  if (/\b(hectares?|ha|acres?)\b/.test(n)) return 'ha'
+  return ''
+}
+
 function isAggregateRow(name: string): boolean {
   const normalized = name.toLowerCase().trim()
   return normalized === 'total' || normalized === 'all' || normalized === 'sri lanka'
@@ -629,7 +654,7 @@ async function fetchLdfCatalog(options: FetchOptions = {}): Promise<DatasetManif
         name: datasetName,
         description: `${datasetName} from LDFLK.`,
         source: 'ldflk' as const,
-        unit: 'value',
+        unit: inferLdflkUnit(datasetName),
         level,
         path,
         years: sortedYears,

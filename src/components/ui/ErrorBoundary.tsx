@@ -35,13 +35,13 @@ export default class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <Box className="h-screen w-screen flex items-center justify-center bg-gray-100 p-4">
-          <Box className="bg-white elevation-3 rounded-lg p-8 max-w-md text-center">
-            <ErrorIcon className="text-red-500 mb-4" style={{ fontSize: 64 }} />
-            <Typography variant="h5" className="mb-2 font-medium">
+        <Box className="h-screen w-screen flex items-center justify-center bg-[var(--bg)] p-4">
+          <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-8 max-w-md text-center shadow-[var(--shadow-md)]">
+            <ErrorIcon className="mb-4" style={{ fontSize: 64, color: 'var(--alert)' }} />
+            <Typography variant="h5" className="mb-2 font-medium" style={{ color: 'var(--ink)' }}>
               Something went wrong
             </Typography>
-            <Typography variant="body2" className="text-gray-600 mb-4">
+            <Typography variant="body2" className="mb-4" style={{ color: 'var(--ink-2)' }}>
               {this.state.error?.message || 'An unexpected error occurred'}
             </Typography>
             <Button

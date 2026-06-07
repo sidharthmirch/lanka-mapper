@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
@@ -49,7 +49,7 @@ function RankingRow({
     <button
       type="button"
       onClick={() => onSelect(name)}
-      className="w-full rounded-xl border border-[var(--outline)]/70 bg-[var(--surface)]/70 px-3 py-2 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--gradient-3)_12%,var(--surface))]"
+      className="w-full rounded-md border border-[var(--outline)]/70 bg-[var(--surface)]/70 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-variant)]/70"
     >
       <div className="mb-1 flex items-center justify-between text-xs font-semibold opacity-85">
         <span>{name}</span>
@@ -77,6 +77,10 @@ export default function RankingsChart({
   animationDurationMs = 400,
 }: RankingsChartProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [autoCollapsed, setAutoCollapsed] = useState(false)
+  const [manualExpandOverride, setManualExpandOverride] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
   // `data` identity changes on every playback frame (~12 fps); memoize
   // the sort so we're not re-allocating this array on every tick.
   const rows = useMemo(
@@ -88,10 +92,54 @@ export default function RankingsChart({
   const maxAnimated = useAnimatedScalar(maxValue, playbackActive, animationDurationMs, {
     roundWhileActive: true,
   })
+  const effectiveCollapsed = collapsed || (autoCollapsed && !manualExpandOverride)
+
+  useEffect(() => {
+    const updateOverflowState = () => {
+      const constrainedViewport = window.matchMedia('(max-width: 767px), (max-height: 720px)').matches
+      if (!constrainedViewport) {
+        setAutoCollapsed(false)
+        setManualExpandOverride(false)
+        return
+      }
+
+      const list = listRef.current
+      if (!list) return
+
+      const overflowing = list.scrollHeight > list.clientHeight + 1
+      setAutoCollapsed(overflowing)
+      if (!overflowing) {
+        setManualExpandOverride(false)
+      }
+    }
+
+    updateOverflowState()
+
+    const observer = new ResizeObserver(updateOverflowState)
+    if (rootRef.current) observer.observe(rootRef.current)
+    if (listRef.current) observer.observe(listRef.current)
+    window.addEventListener('resize', updateOverflowState)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateOverflowState)
+    }
+  }, [rows.length])
+
+  const handleToggleCollapsed = () => {
+    if (effectiveCollapsed) {
+      setCollapsed(false)
+      setManualExpandOverride(true)
+      return
+    }
+    setCollapsed(true)
+    setManualExpandOverride(false)
+  }
 
   return (
     <Box
-      className="max-h-[calc(100vh-11rem)] overflow-hidden rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/95 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl"
+      ref={rootRef}
+      className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--outline)] bg-[var(--surface)]/95 p-3 shadow-[var(--shadow-md)] sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
       sx={{
         color: 'var(--on-surface)',
         fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
@@ -100,14 +148,14 @@ export default function RankingsChart({
     >
       <button
         type="button"
-        className="mb-2 flex w-full items-center justify-between rounded-xl px-2 py-1 text-left hover:bg-[var(--surface-variant)]/55"
-        onClick={() => setCollapsed((prev) => !prev)}
+        className="mb-2 flex w-full items-center justify-between rounded-md px-2 py-1 text-left hover:bg-[var(--surface-variant)]/55"
+        onClick={handleToggleCollapsed}
       >
         <Typography variant="subtitle2" className="font-semibold">Top Regions</Typography>
-        {collapsed ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowUpIcon fontSize="small" />}
+        {effectiveCollapsed ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowUpIcon fontSize="small" />}
       </button>
-      {!collapsed && (
-        <Box className="max-h-[calc(100vh-16rem)] space-y-2 overflow-y-auto">
+      {!effectiveCollapsed && (
+        <Box ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto">
           {rows.map((row) => (
             <RankingRow
               key={row.name}

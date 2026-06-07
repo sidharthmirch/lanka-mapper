@@ -21,7 +21,7 @@ export default function DataTable({ tableData }: DataTableProps) {
   if (!tableData) {
     return (
       <Box className="h-full p-6 pt-4">
-        <Box className="mx-auto max-w-4xl rounded-3xl border border-[var(--outline)] bg-[var(--surface)]/74 p-6 shadow-[0_18px_34px_rgba(0,0,0,0.1)] backdrop-blur-xl">
+        <Box className="mx-auto max-w-4xl rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-6 shadow-[var(--shadow-md)]">
           <Typography>No table data available for this dataset.</Typography>
         </Box>
       </Box>
@@ -30,10 +30,10 @@ export default function DataTable({ tableData }: DataTableProps) {
 
   return (
     <Box className="h-full p-6 pt-4">
-      <Box className="mx-auto h-full max-w-[1300px] rounded-3xl border border-[var(--outline)] bg-[var(--surface)]/76 p-6 shadow-[0_18px_34px_rgba(0,0,0,0.1)] backdrop-blur-xl">
+      <Box className="mx-auto h-full max-w-[1300px] rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-6 shadow-[var(--shadow-md)]">
         <Box className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Box>
-            <Typography variant="h6" className="font-semibold tracking-tight">Raw Data Table</Typography>
+            <Typography variant="h6" className="font-semibold">Raw Data Table</Typography>
             <Typography variant="caption" className="opacity-65">
               Showing {rows.length.toLocaleString()} row(s)
             </Typography>
@@ -46,7 +46,7 @@ export default function DataTable({ tableData }: DataTableProps) {
           />
         </Box>
 
-        <div className="h-[calc(100%-4.5rem)] overflow-auto rounded-xl border border-[var(--outline)] bg-[var(--surface)]">
+        <div className="h-[calc(100%-4.5rem)] overflow-auto rounded-lg border border-[var(--outline)] bg-[var(--surface)]">
           <table className="w-full min-w-[40rem] text-sm">
             <thead className="sticky top-0 bg-[var(--surface-variant)] text-left">
               <tr>

@@ -28,6 +28,7 @@ import {
   buildPlaybackSchedule,
   FRAMES_PER_GAP,
   getMapPlaybackFrameIntervalMs,
+  getPlaybackStartFrameIndex,
   playbackFrameLinearYear,
   type PlaybackFrame,
 } from '@/lib/mapPlaybackSchedule'
@@ -62,11 +63,6 @@ function nearestDataYear(sortedYears: number[], y: number): number {
     }
   }
   return best
-}
-
-function findStartFrameIndex(schedule: PlaybackFrame[], currentYear: number): number {
-  const idx = schedule.findIndex((f) => playbackFrameLinearYear(f) >= currentYear)
-  return idx === -1 ? 0 : idx
 }
 
 function formatSyncTime(lastCatalogSync: number | null): string {
@@ -187,11 +183,15 @@ export default function HomePage() {
   const playbackScheduleRef = useRef<PlaybackFrame[]>([])
   const playbackStepIndexRef = useRef(0)
   const playbackLinearYearRef = useRef<number | null>(null)
+  const mobileSidebarInitializedRef = useRef(false)
   const setPlaybackLinearYearSync = useCallback((y: number | null) => {
     playbackLinearYearRef.current = y
     setPlaybackLinearYear(y)
   }, [])
+  const isMobileLayout = useMediaQuery('(max-width: 767px)')
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)')
+  // Warm-neutral light by default; warm dark variant via the sidebar toggle.
+  // `system` follows the OS preference until the user explicitly picks light/dark.
   const isDarkMode = themeMode === 'dark' || (themeMode === 'system' && prefersDark)
 
   const activeDataset = useMemo(
@@ -281,17 +281,30 @@ export default function HomePage() {
       palette: {
         mode: isDarkMode ? 'dark' : 'light',
         primary: { main: accent.main, dark: accent.dark, light: accent.light },
-        secondary: { main: '#de8a35' },
+        secondary: { main: isDarkMode ? '#6a9286' : '#3b665a' },
         background: isDarkMode
-          ? { default: '#0d1118', paper: '#111a24' }
-          : { default: '#edf3f9', paper: '#f9fcff' },
+          ? { default: '#1a1713', paper: '#232019' }
+          : { default: '#f4f0e8', paper: '#fdfbf6' },
+        text: isDarkMode
+          ? { primary: '#ece5d8', secondary: '#b3a995' }
+          : { primary: '#22201c', secondary: '#645d50' },
+        divider: isDarkMode ? '#3a352b' : '#ddd4c4',
+        error: { main: isDarkMode ? '#d98368' : '#9a341f' },
       },
+      shape: { borderRadius: 8 },
       typography: {
-        fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
-        h6: { fontWeight: 650, letterSpacing: '-0.01em' },
+        fontFamily: 'var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+        h6: { fontWeight: 660, lineHeight: 1.15, letterSpacing: 0 },
+        subtitle2: { fontWeight: 620, letterSpacing: 0 },
+        button: { fontWeight: 600, letterSpacing: 0 },
       },
       components: {
-        MuiButton: { styleOverrides: { root: { textTransform: 'none', borderRadius: 12 } } },
+        MuiButton: {
+          defaultProps: { disableElevation: true },
+          styleOverrides: { root: { textTransform: 'none', borderRadius: 8 } },
+        },
+        MuiIconButton: { styleOverrides: { root: { borderRadius: 8 } } },
+        MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
       },
     })
   }, [isDarkMode, accentPresetId, accentTone])
@@ -300,6 +313,14 @@ export default function HomePage() {
     setMounted(true)
     void initializeCatalog()
   }, [initializeCatalog])
+
+  useEffect(() => {
+    if (!mounted || !isMobileLayout || mobileSidebarInitializedRef.current) return
+    mobileSidebarInitializedRef.current = true
+    if (sidebarOpen) {
+      toggleSidebar()
+    }
+  }, [isMobileLayout, mounted, sidebarOpen, toggleSidebar])
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -390,7 +411,7 @@ export default function HomePage() {
       return
     }
     playbackScheduleRef.current = schedule
-    const startIdx = findStartFrameIndex(schedule, currentYear)
+    const startIdx = getPlaybackStartFrameIndex(schedule, currentYear)
     playbackStepIndexRef.current = startIdx
     const frame = schedule[startIdx]
     applyMapInterpolatedFrame(frame.y0, frame.y1, frame.t)
@@ -494,20 +515,30 @@ export default function HomePage() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
-        <Box className="app-shell h-screen w-screen relative overflow-hidden" role="main">
-          <Box className="flex h-full w-full pb-4 px-4 pt-4 gap-4">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <Box className="app-shell relative h-[100dvh] w-screen overflow-hidden" role="main">
+          <Box className="flex h-full w-full gap-3 px-3 pb-3 pt-3 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
               <TabBar
                 currentTab={currentTab}
                 onTabChange={setCurrentTab}
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
+                sidebarOpen={sidebarOpen}
+                showRandom={currentTab === 'map'}
+                randomDisabled={randomPickDisabled}
+                onRandomPick={handleRandomPick}
+                showChoropleth={showChoropleth}
+                showCentroids={showCentroids}
+                onToggleChoropleth={setShowChoropleth}
+                onToggleCentroids={setShowCentroids}
               />
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.45 }}
-                className="relative flex-1 min-h-0 min-w-0 rounded-[20px] border border-[var(--outline)] bg-[var(--surface)]/70 shadow-[0_20px_40px_rgba(15,27,44,0.08)] overflow-hidden"
+                id="main-content"
+                className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/80 shadow-[var(--shadow-lg)]"
                 aria-label="Main content"
               >
               {currentTab === 'map' && (
@@ -531,7 +562,7 @@ export default function HomePage() {
                   />
 
                   {data && data.length === 0 && (
-                    <Box className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/95 px-5 py-4 text-center shadow-[0_14px_28px_rgba(0,0,0,0.12)]">
+                    <Box className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--outline)] bg-[var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow-md)]">
                       <Typography className="font-semibold">No geographic layer in this dataset</Typography>
                       <Typography variant="body2" className="opacity-75 mt-1">
                         Use the Time Series or Table tabs for this source.
@@ -540,7 +571,7 @@ export default function HomePage() {
                   )}
 
                   {data && data.length > 0 && (
-                    <Box className="absolute left-4 top-4 z-[850] w-[320px]">
+                    <Box className="absolute left-3 top-3 z-[850] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]">
                       <RankingsChart
                         data={rankingsData}
                         unit={currentDatasetUnit}
@@ -561,7 +592,15 @@ export default function HomePage() {
                   )}
 
                   {activeDataset && (
-                    <Box className="absolute bottom-4 left-1/2 z-[860] -translate-x-1/2">
+                    <Box
+                      className={`absolute bottom-8 z-[860] md:bottom-6 xl:bottom-4 ${
+                        isMobileLayout
+                          ? 'left-3 right-3'
+                          : sidebarOpen
+                            ? 'left-4 right-auto w-[min(46rem,calc(100%-2rem))]'
+                            : 'left-1/2 w-[min(46rem,calc(100%-2rem))] -translate-x-1/2'
+                      }`}
+                    >
                       <MapTimeToolbar
                         currentYear={currentYear}
                         playbackLinearYear={playbackLinearYear}
@@ -618,7 +657,6 @@ export default function HomePage() {
               currentDatasetSource={currentDatasetSource}
               currentDatasetSecondarySource={currentDatasetSecondarySource}
               currentDatasetUnit={currentDatasetUnit}
-              darkMode={isDarkMode}
               currentTab={currentTab}
               showChoropleth={showChoropleth}
               showCentroids={showCentroids}
@@ -640,6 +678,7 @@ export default function HomePage() {
               onMetricChange={handleMetricChange}
               onToggleChoropleth={setShowChoropleth}
               onToggleCentroids={setShowCentroids}
+              darkMode={isDarkMode}
               onToggleDarkMode={() => setThemeMode(isDarkMode ? 'light' : 'dark')}
               onViewRawData={() => setCurrentTab('table')}
               mapPlaybackActive={mapPlaybackActive}
@@ -648,17 +687,17 @@ export default function HomePage() {
           </Box>
 
           {error && (
-            <Box className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[1000]">
-              <Alert severity="error" className="shadow-lg rounded-xl">{error}</Alert>
+            <Box className="fixed bottom-20 left-1/2 z-[1300] -translate-x-1/2 px-3">
+              <Alert severity="error" className="rounded-lg border border-red-300/50 shadow-[var(--shadow-md)]">{error}</Alert>
             </Box>
           )}
 
           {loading && (
-            <Box className="fixed inset-0 bg-[rgba(8,18,30,0.25)] backdrop-blur-sm flex items-center justify-center z-[1100]">
+            <Box className="fixed inset-0 z-[1300] flex items-center justify-center bg-[rgba(34,32,28,0.22)] backdrop-blur-sm">
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/92 p-6"
+                className="rounded-lg border border-[var(--outline)] bg-[var(--surface)]/94 p-6 shadow-[var(--shadow-md)]"
               >
                 <Box className="flex items-center space-x-4">
                   <CircularProgress size={28} thickness={4} />

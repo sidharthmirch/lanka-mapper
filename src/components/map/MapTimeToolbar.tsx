@@ -14,6 +14,10 @@ import PauseIcon from '@mui/icons-material/Pause'
 import LoopIcon from '@mui/icons-material/Loop'
 import RemoveIcon from '@mui/icons-material/Remove'
 import AddIcon from '@mui/icons-material/Add'
+import {
+  getTimelinePositionForYear,
+  getTimelineYearFromPosition,
+} from '@/lib/mapPlaybackSchedule'
 
 export type MapPlaybackSpeed = 0.5 | 1 | 1.5 | 2
 
@@ -67,18 +71,19 @@ export default function MapTimeToolbar({
 }: MapTimeToolbarProps) {
   const sortedYears = useMemo(() => [...years].sort((a, b) => a - b), [years])
   const scrubbing = playbackActive && playbackLinearYear != null
-  const minY = sortedYears[0] ?? currentYear
-  const maxY = sortedYears[sortedYears.length - 1] ?? currentYear
-  const sliderValue = scrubbing
-    ? Math.min(maxY, Math.max(minY, playbackLinearYear))
-    : currentYear
+  const sliderMax = Math.max(0, sortedYears.length - 1)
+  const sliderValue = getTimelinePositionForYear(
+    sortedYears,
+    scrubbing ? playbackLinearYear : currentYear
+  )
+  const sliderPercent = sliderMax > 0 ? (sliderValue / sliderMax) * 100 : 0
   /**
-   * Visible CURRENT YEAR label always reads as an integer — fractional years like
+   * Visible CURRENT YEAR label always reads as an integer - fractional years like
    * "2021.3" flicker between digits every playback tick and read as jitter even
    * when the underlying scrubber position is continuous. Slider thumb keeps the
    * fractional `sliderValue` (smooth motion); only the text is rounded.
    */
-  const headerYearText = String(Math.round(sliderValue))
+  const headerYearText = String(Math.round(scrubbing ? playbackLinearYear : currentYear))
 
   const sliderMarks = useMemo(() => {
     const labelledYears = new Set<number>()
@@ -93,8 +98,8 @@ export default function MapTimeToolbar({
       }
     }
 
-    return sortedYears.map((year) => ({
-      value: year,
+    return sortedYears.map((year, index) => ({
+      value: index,
       label: labelledYears.has(year) ? `${year}` : undefined,
     }))
   }, [sortedYears])
@@ -107,6 +112,7 @@ export default function MapTimeToolbar({
   const panelSx = {
     color: 'var(--on-surface)',
     fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
+    fontVariantNumeric: 'tabular-nums',
     '& .MuiTypography-root': {
       fontFamily: 'inherit',
     },
@@ -137,7 +143,7 @@ export default function MapTimeToolbar({
       display: 'none',
     },
     '& .MuiSlider-markLabel': {
-      fontSize: 11,
+      fontSize: 10.5,
       fontFamily: 'inherit',
       color: 'var(--on-surface-variant)',
       whiteSpace: 'nowrap',
@@ -160,33 +166,31 @@ export default function MapTimeToolbar({
     },
     '& .MuiSlider-rail': {
       opacity: 1,
-      height: 8,
-      borderRadius: 999,
+      height: 9,
+      borderRadius: 6,
       backgroundColor: 'var(--surface-variant)',
       border: '1px solid',
-      borderColor: 'color-mix(in srgb, var(--outline) 80%, transparent)',
+      borderColor: 'var(--outline)',
     },
     '& .MuiSlider-track': {
       border: 'none',
-      height: 8,
-      borderRadius: 999,
+      height: 9,
+      borderRadius: 6,
       /* Matches active region-shading ramp (`--gradient-*` on :root). */
       background:
         'linear-gradient(90deg, var(--gradient-0) 0%, var(--gradient-2) 42%, var(--gradient-5) 100%)',
     },
     '& .MuiSlider-thumb': {
-      width: 20,
-      height: 20,
-      background:
-        'linear-gradient(145deg, color-mix(in srgb, var(--gradient-1) 55%, white) 0%, var(--gradient-1) 28%, var(--gradient-3) 55%, var(--gradient-5) 100%)',
-      border: '2px solid rgba(255, 255, 255, 0.92)',
-      boxShadow: '0 2px 10px rgba(15, 27, 44, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45)',
+      width: 18,
+      height: 18,
+      background: 'var(--surface)',
+      border: '2px solid var(--primary)',
+      boxShadow: 'var(--shadow-sm)',
       '&:hover, &.Mui-focusVisible': {
-        boxShadow:
-          '0 2px 14px color-mix(in srgb, var(--gradient-4) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+        boxShadow: 'var(--shadow-md)',
       },
       '&.Mui-active': {
-        boxShadow: '0 1px 8px rgba(15, 27, 44, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+        boxShadow: 'var(--shadow-sm)',
       },
     },
     '& .MuiSlider-thumb.Mui-disabled': {
@@ -200,8 +204,8 @@ export default function MapTimeToolbar({
   const sidebarControlButtonSx = {
     border: '1px solid',
     borderColor: 'var(--outline)',
-    borderRadius: '10px',
-    backgroundColor: 'color-mix(in srgb, var(--surface) 70%, transparent)',
+    borderRadius: '8px',
+    backgroundColor: 'var(--surface)',
     color: 'var(--primary)',
     width: CONTROL_SIZE_PX,
     height: CONTROL_SIZE_PX,
@@ -215,7 +219,14 @@ export default function MapTimeToolbar({
     justifyContent: 'center',
     '&:hover': {
       backgroundColor: 'var(--surface-variant)',
-      borderColor: 'var(--outline)',
+      borderColor: 'var(--primary)',
+    },
+    '&:active': {
+      transform: 'translateY(1px) scale(0.98)',
+    },
+    '&:focus-visible': {
+      outline: '2px solid var(--primary)',
+      outlineOffset: '2px',
     },
     '&.Mui-disabled': {
       borderColor: 'var(--outline)',
@@ -228,7 +239,7 @@ export default function MapTimeToolbar({
   const loopToggleSx = {
     border: '1px solid',
     borderColor: 'var(--outline)',
-    borderRadius: '10px',
+    borderRadius: '8px',
     textTransform: 'none' as const,
     width: CONTROL_SIZE_PX,
     height: CONTROL_SIZE_PX,
@@ -241,14 +252,14 @@ export default function MapTimeToolbar({
     alignItems: 'center',
     justifyContent: 'center',
     color: 'var(--on-surface)',
-    backgroundColor: 'color-mix(in srgb, var(--surface) 70%, transparent)',
+    backgroundColor: 'var(--surface)',
     '&:hover': {
       backgroundColor: 'var(--surface-variant)',
     },
     '&.Mui-selected': {
       color: 'var(--primary)',
-      backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-      borderColor: 'color-mix(in srgb, var(--primary) 45%, var(--outline) 55%)',
+      backgroundColor: 'var(--surface-variant)',
+      borderColor: 'var(--primary)',
     },
     '&.Mui-disabled': {
       opacity: 0.45,
@@ -268,15 +279,15 @@ export default function MapTimeToolbar({
   if (!hasMultipleYears) {
     return (
       <Box
-        className="rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/95 px-5 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl"
+        className="rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/94 px-5 py-3 shadow-[var(--shadow-md)]"
         sx={panelSx}
       >
         <Box className="flex items-center gap-3">
           <Typography
             variant="subtitle2"
-            className="font-semibold uppercase tracking-[0.12em] text-[10px] text-[var(--on-surface-variant)]"
+            className="font-semibold text-[10px] text-[var(--on-surface-variant)]"
           >
-            CURRENT YEAR
+            Current year
           </Typography>
           <Typography
             variant="subtitle2"
@@ -287,7 +298,7 @@ export default function MapTimeToolbar({
           </Typography>
           <Typography
             variant="caption"
-            className="ml-auto opacity-70"
+            className="ml-auto text-[11px] opacity-70"
             sx={{ fontStyle: 'italic' }}
           >
             Single year in this dataset
@@ -299,45 +310,46 @@ export default function MapTimeToolbar({
 
   return (
     <Box
-      className="rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/95 px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl sm:px-6 sm:py-4"
+      data-testid="map-time-toolbar"
+      className="w-full rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/94 px-4 py-3.5 shadow-[var(--shadow-md)] sm:px-5 sm:py-4 lg:px-6"
       sx={panelSx}
     >
-      <Box className="w-[min(100vw-2.5rem,392px)] max-w-full">
-        <Box className="mb-2 flex items-center justify-between gap-2">
-          <Typography
-            variant="subtitle2"
-            className="font-semibold uppercase tracking-[0.12em] text-[10px] text-[var(--on-surface-variant)]"
-          >
-            CURRENT YEAR
-          </Typography>
-          <Typography
-            variant="subtitle2"
-            className="font-semibold tabular-nums"
-            sx={{ color: 'var(--gradient-4)' }}
-          >
-            {headerYearText}
-          </Typography>
+      <Box className="mx-auto w-full max-w-[392px]">
+        <Box className="px-2 pb-3 pt-1 sm:px-5 lg:px-6">
+          <Box className="relative pt-7">
+            <Box
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md border border-[var(--outline)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--primary)] shadow-[var(--shadow-sm)]"
+              sx={{
+                left: `${sliderPercent}%`,
+              }}
+            >
+              {headerYearText}
+              <Box
+                component="span"
+                className="absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-[var(--outline)]"
+              />
+            </Box>
+            <Slider
+              value={sliderValue}
+              min={0}
+              max={sliderMax}
+              marks={sliderMarks}
+              step={scrubbing ? 0.01 : 1}
+              disabled={loading || playbackActive}
+              size="small"
+              getAriaValueText={(value) => String(getTimelineYearFromPosition(sortedYears, value))}
+              onChange={(_, value) => {
+                if (typeof value === 'number' && !playbackActive) {
+                  onYearChange(getTimelineYearFromPosition(sortedYears, value))
+                }
+              }}
+              sx={yearSliderSx}
+            />
+          </Box>
         </Box>
 
-        <Box className="px-5 pb-3 pt-1 sm:px-6">
-          <Slider
-            value={sliderValue}
-            min={minY}
-            max={maxY}
-            marks={sliderMarks}
-            step={scrubbing ? 0.01 : null}
-            disabled={loading || playbackActive}
-            size="small"
-            onChange={(_, value) => {
-              if (typeof value === 'number' && !playbackActive) {
-                onYearChange(value)
-              }
-            }}
-            sx={yearSliderSx}
-          />
-        </Box>
-
-        <Box className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--outline)]/80 pt-4">
+        <Box className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--outline)]/80 pt-3.5 max-[380px]:justify-center sm:mt-6 sm:pt-4">
           <Box className="flex items-center gap-1.5">
             <Tooltip title={playbackActive ? 'Pause' : 'Play'}>
               <span>

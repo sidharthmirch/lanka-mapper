@@ -32,7 +32,9 @@ interface TimeSeriesChartProps {
   selectedSeries: string[]
 }
 
-const SERIES_COLORS = ['#2f8fcd', '#de8a35', '#4da167', '#7c6ad8', '#cd5261', '#6f8a2d', '#228c99', '#c44dbd', '#3aa68c', '#d4a72c']
+// Categorical series palette — saturated is allowed here because color encodes
+// data (per the warm-neutral hub rules). Warm-leaning, mutually distinguishable.
+const SERIES_COLORS = ['#b45830', '#3b665a', '#8f6b3d', '#9a341f', '#4a6d8c', '#7d5a7a', '#6a9286', '#c2703f', '#5b7a3a', '#a8852f']
 const PIE_MAX_CATEGORIES = 8
 
 type PlotMode = 'line' | 'bar' | 'pie'
@@ -112,7 +114,7 @@ export default function TimeSeriesChart({
   if (names.length === 0) {
     return (
       <Box className="h-full p-6 pt-4">
-        <Box className="h-full rounded-3xl border border-[var(--outline)] bg-[var(--surface)]/74 p-8 shadow-[0_18px_34px_rgba(0,0,0,0.1)] backdrop-blur-xl flex items-center justify-center text-center">
+        <Box className="h-full rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-8 shadow-[var(--shadow-md)] flex items-center justify-center text-center">
           <Box>
             <Typography variant="h6" className="font-semibold">No series available yet</Typography>
             <Typography variant="body2" className="opacity-70 mt-1">
@@ -143,10 +145,10 @@ export default function TimeSeriesChart({
 
   return (
     <Box className="h-full p-6 pt-4">
-      <Box className="mx-auto h-full max-w-[1200px] rounded-3xl border border-[var(--outline)] bg-[var(--surface)]/76 p-6 shadow-[0_18px_34px_rgba(0,0,0,0.1)] backdrop-blur-xl flex flex-col">
+      <Box className="mx-auto h-full max-w-[1200px] rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-6 shadow-[var(--shadow-md)] flex flex-col">
         <Box className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <Box>
-            <Typography variant="h6" className="font-semibold tracking-tight">
+            <Typography variant="h6" className="font-semibold">
               Data Plot Explorer
               <Typography component="span" variant="caption" className="ml-2 opacity-50 font-normal">
                 ({modeLabel})
@@ -176,7 +178,7 @@ export default function TimeSeriesChart({
 
         <Box className="flex-1 min-h-0">
           {lineEmpty && (
-            <Box className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-[var(--outline)] bg-[var(--surface)]/40 px-6 text-center">
+            <Box className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--outline)] bg-[var(--surface)]/40 px-6 text-center">
               <Box>
                 <Typography variant="subtitle1" className="font-semibold">No series selected</Typography>
                 <Typography variant="body2" className="opacity-70 mt-1">
@@ -189,17 +191,15 @@ export default function TimeSeriesChart({
           {plotMode === 'line' && !lineEmpty && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={lineChartData} margin={{ left: 6, right: 8, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 140, 160, 0.35)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 32, 28, 0.10)" />
                 <XAxis dataKey="year" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} label={{ value: yLabel, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10 } }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(249, 252, 255, 0.88)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(76, 96, 120, 0.16)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
+                    backgroundColor: '#fdfbf6',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd4c4',
+                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
                   }}
                   itemStyle={{ fontWeight: 600 }}
                   formatter={(v, name) => [formatTooltipNumber(v), String(name)]}
@@ -227,7 +227,7 @@ export default function TimeSeriesChart({
                 layout="vertical"
                 margin={{ left: 120, right: 20, top: 8, bottom: 8 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 140, 160, 0.25)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 32, 28, 0.08)" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis
                   dataKey="name"
@@ -237,12 +237,10 @@ export default function TimeSeriesChart({
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(249, 252, 255, 0.88)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(76, 96, 120, 0.16)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
+                    backgroundColor: '#fdfbf6',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd4c4',
+                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
                   }}
                   itemStyle={{ fontWeight: 600 }}
                   formatter={(v, name) => [formatTooltipNumber(v), String(name)]}
@@ -277,12 +275,10 @@ export default function TimeSeriesChart({
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(249, 252, 255, 0.88)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(76, 96, 120, 0.16)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
+                    backgroundColor: '#fdfbf6',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd4c4',
+                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
                   }}
                   itemStyle={{ fontWeight: 600 }}
                   formatter={(v, name) => [formatTooltipNumber(v), String(name)]}

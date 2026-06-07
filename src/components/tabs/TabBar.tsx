@@ -4,12 +4,16 @@ import { useMemo, useState, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import {
   Autocomplete,
+  IconButton,
   Chip,
+  Switch,
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
+import ShuffleIcon from '@mui/icons-material/Shuffle'
 import type { AppTab, DatasetManifestEntry } from '@/types'
 
 interface TabBarProps {
@@ -17,6 +21,14 @@ interface TabBarProps {
   onTabChange: (tab: AppTab) => void
   datasetManifest: DatasetManifestEntry[]
   onSelectDataset: (dataset: DatasetManifestEntry) => void
+  sidebarOpen: boolean
+  showRandom: boolean
+  randomDisabled: boolean
+  onRandomPick: () => void
+  showChoropleth: boolean
+  showCentroids: boolean
+  onToggleChoropleth: (show: boolean) => void
+  onToggleCentroids: (show: boolean) => void
 }
 
 const TABS: Array<{ id: AppTab; label: string }> = [
@@ -30,9 +42,9 @@ const MAX_FUSE_RESULTS = 220
 const BROWSE_PREVIEW = 90
 
 function getLevelChipStyles(level: 'district' | 'province' | 'national') {
-  if (level === 'district') return { label: 'DISTRICT', className: 'bg-emerald-100 text-emerald-800' }
-  if (level === 'province') return { label: 'PROVINCE', className: 'bg-amber-100 text-amber-800' }
-  return { label: 'NATIONAL', className: 'bg-slate-200 text-slate-700' }
+  if (level === 'district') return { label: 'District', className: 'bg-[var(--surface-variant)] text-[var(--on-surface)]' }
+  if (level === 'province') return { label: 'Province', className: 'bg-[var(--surface-variant)] text-[var(--on-surface)]' }
+  return { label: 'National', className: 'bg-[var(--surface-variant)] text-[var(--on-surface)]' }
 }
 
 /** Map / Plots view pills — plain spans, no MuiBox. */
@@ -42,10 +54,10 @@ function viewIndicatorBlocks(option: DatasetManifestEntry): ReactNode[] {
     blocks.push(
       <span
         key="map"
-        className="inline-flex items-center justify-center rounded-md border border-sky-400/85 bg-sky-500/15 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+        className="inline-flex items-center justify-center rounded-md border border-[var(--outline)] bg-[var(--surface-variant)]/70 px-2 py-0.5"
       >
-        <span className="text-[0.58rem] font-extrabold leading-none tracking-[0.08em] text-sky-500">
-          MAP
+        <span className="text-[0.58rem] font-bold leading-none text-[var(--on-surface)]">
+          Map
         </span>
       </span>,
     )
@@ -54,10 +66,10 @@ function viewIndicatorBlocks(option: DatasetManifestEntry): ReactNode[] {
     blocks.push(
       <span
         key="plot"
-        className="inline-flex items-center justify-center rounded-md border border-violet-400/85 bg-violet-500/12 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+        className="inline-flex items-center justify-center rounded-md border border-[var(--outline)] bg-[var(--surface-variant)]/70 px-2 py-0.5"
       >
-        <span className="text-[0.58rem] font-extrabold leading-none tracking-[0.08em] text-violet-500">
-          PLOT
+        <span className="text-[0.58rem] font-bold leading-none text-[var(--on-surface)]">
+          Plot
         </span>
       </span>,
     )
@@ -70,6 +82,14 @@ export default function TabBar({
   onTabChange,
   datasetManifest,
   onSelectDataset,
+  sidebarOpen,
+  showRandom,
+  randomDisabled,
+  onRandomPick,
+  showChoropleth,
+  showCentroids,
+  onToggleChoropleth,
+  onToggleCentroids,
 }: TabBarProps) {
   const [inputValue, setInputValue] = useState('')
 
@@ -101,32 +121,45 @@ export default function TabBar({
     return fuse.search(q).map((r) => r.item).slice(0, MAX_FUSE_RESULTS)
   }, [fuse, inputValue, sortedManifest])
 
+  const showCollapsedSidebarMapActions = currentTab === 'map' && !sidebarOpen
+
   return (
     <div
-      className="w-full shrink-0 rounded-2xl border border-[var(--outline)] bg-[var(--surface)]/80 px-3 py-2 shadow-[0_12px_36px_rgba(0,0,0,0.12)] backdrop-blur-2xl text-[var(--on-surface)]"
+      className="w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-2.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]"
     >
-      <div className="flex min-h-[40px] items-center gap-2 sm:gap-3">
+      <div className="flex min-h-[42px] flex-col items-stretch gap-2">
+        <div className="flex items-center gap-2">
         <Tabs
           value={currentTab}
           onChange={(_, nextValue: AppTab) => onTabChange(nextValue)}
+          variant="scrollable"
+          scrollButtons={false}
           textColor="inherit"
           indicatorColor="primary"
           sx={{
-            minHeight: 36,
-            flex: '0 0 auto',
+            minHeight: 38,
+            flex: '1 1 auto',
+            maxWidth: '100%',
             minWidth: 0,
             '& .MuiTabs-indicator': {
               height: 3,
               borderRadius: 999,
+              background: 'var(--primary)',
             },
             '& .MuiTab-root': {
-              minHeight: 36,
-              padding: '6px 12px',
+              minHeight: 38,
+              minWidth: { xs: 76, lg: 90 },
+              padding: { xs: '6px 10px', lg: '6px 12px' },
               textTransform: 'none',
-              fontWeight: 700,
-              fontSize: 13,
-              borderRadius: '10px',
-              letterSpacing: '0.01em',
+              fontWeight: 650,
+              fontSize: { xs: 12, lg: 12.5 },
+              borderRadius: '8px',
+              color: 'var(--on-surface-variant)',
+              transition: 'background-color 180ms ease, color 180ms ease',
+            },
+            '& .MuiTab-root.Mui-selected': {
+              color: 'var(--on-surface)',
+              backgroundColor: 'var(--surface-variant)',
             },
           }}
         >
@@ -135,8 +168,47 @@ export default function TabBar({
           ))}
         </Tabs>
 
+        {showCollapsedSidebarMapActions && (
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--outline)]/70 bg-[var(--surface-variant)]/40 px-1.5 py-1">
+            {showRandom && (
+              <Tooltip title="Random dataset">
+                <span>
+                  <IconButton
+                    type="button"
+                    size="small"
+                    color="secondary"
+                    onClick={onRandomPick}
+                    disabled={randomDisabled}
+                    aria-label="Random dataset"
+                    className="border border-[var(--outline)]/70 bg-[var(--surface)]/65"
+                  >
+                    <ShuffleIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            <Tooltip title="Region shading">
+              <Switch
+                size="small"
+                checked={showChoropleth}
+                onChange={(_, checked) => onToggleChoropleth(checked)}
+                inputProps={{ 'aria-label': 'Region shading' }}
+              />
+            </Tooltip>
+            <Tooltip title="Show centroid points">
+              <Switch
+                size="small"
+                checked={showCentroids}
+                onChange={(_, checked) => onToggleCentroids(checked)}
+                inputProps={{ 'aria-label': 'Show centroid points' }}
+              />
+            </Tooltip>
+          </div>
+        )}
+        </div>
+
         <Autocomplete
-          className="min-w-0 flex-1"
+          className="min-w-0 w-full"
           size="small"
           options={searchOptions}
           value={undefined}
@@ -180,16 +252,16 @@ export default function TabBar({
                     )}
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {option.hasGeo && (
-                        <Chip label="GEO" size="small" className="bg-emerald-100 text-emerald-800 font-bold" sx={{ height: 18, fontSize: '0.58rem' }} />
+                        <Chip label="Geo" size="small" className="bg-[var(--surface-variant)] text-[var(--on-surface)] font-semibold" sx={{ height: 18, fontSize: '0.58rem', borderRadius: '6px' }} />
                       )}
                       {option.hasTime && (
-                        <Chip label="TIME" size="small" className="bg-violet-100 text-violet-800 font-bold" sx={{ height: 18, fontSize: '0.58rem' }} />
+                        <Chip label="Time" size="small" className="bg-[var(--surface-variant)] text-[var(--on-surface)] font-semibold" sx={{ height: 18, fontSize: '0.58rem', borderRadius: '6px' }} />
                       )}
                       <Chip
                         label={levelChip.label}
                         size="small"
                         className={`${levelChip.className} font-semibold`}
-                        sx={{ height: 20, fontSize: '0.65rem' }}
+                        sx={{ height: 20, fontSize: '0.65rem', borderRadius: '8px' }}
                       />
                     </div>
                   </div>
@@ -204,14 +276,23 @@ export default function TabBar({
               variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: 'color-mix(in srgb, var(--surface) 88%, transparent)',
+                  borderRadius: '13px',
+                  backgroundColor: 'var(--surface)',
+                  '& fieldset': {
+                    borderColor: 'var(--outline)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--on-surface-variant)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--primary)',
+                  },
                 },
               }}
             />
           )}
           ListboxProps={{
-            sx: { maxHeight: 320 },
+            sx: { maxHeight: 320, p: 0.5 },
           }}
         />
       </div>

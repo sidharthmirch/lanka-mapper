@@ -3,6 +3,9 @@ import {
   buildPlaybackSchedule,
   playbackFrameLinearYear,
   playbackFrameDisplayYear,
+  getPlaybackStartFrameIndex,
+  getTimelinePositionForYear,
+  getTimelineYearFromPosition,
   getMapPlaybackFrameIntervalMs,
   FRAMES_PER_GAP,
   MAP_PLAYBACK_BASE_MS,
@@ -54,6 +57,20 @@ describe('buildPlaybackSchedule', () => {
   })
 })
 
+describe('getPlaybackStartFrameIndex', () => {
+  it('starts from the first frame when play is pressed at the final year', () => {
+    const frames = buildPlaybackSchedule([2019, 2020, 2021], FRAMES_PER_GAP)
+
+    expect(getPlaybackStartFrameIndex(frames, 2021)).toBe(0)
+  })
+
+  it('keeps starting from the current position before the final year', () => {
+    const frames = buildPlaybackSchedule([2019, 2020, 2021], FRAMES_PER_GAP)
+
+    expect(frames[getPlaybackStartFrameIndex(frames, 2020)].y0).toBe(2019)
+  })
+})
+
 describe('playbackFrameLinearYear', () => {
   it('returns y0 at t=0', () => {
     expect(playbackFrameLinearYear({ y0: 2020, y1: 2022, t: 0 })).toBe(2020)
@@ -65,6 +82,56 @@ describe('playbackFrameLinearYear', () => {
 
   it('returns midpoint at t=0.5', () => {
     expect(playbackFrameLinearYear({ y0: 2020, y1: 2022, t: 0.5 })).toBe(2021)
+  })
+})
+
+describe('getTimelinePositionForYear', () => {
+  it('maps uneven calendar gaps onto evenly spaced data stops', () => {
+    const years = [2000, 2010, 2011]
+
+    expect(getTimelinePositionForYear(years, 2000)).toBe(0)
+    expect(getTimelinePositionForYear(years, 2005)).toBe(0.5)
+    expect(getTimelinePositionForYear(years, 2010)).toBe(1)
+    expect(getTimelinePositionForYear(years, 2010.5)).toBe(1.5)
+    expect(getTimelinePositionForYear(years, 2011)).toBe(2)
+  })
+
+  it('sorts input years and clamps outside the available range', () => {
+    const years = [2011, 2000, 2010]
+
+    expect(getTimelinePositionForYear(years, 1999)).toBe(0)
+    expect(getTimelinePositionForYear(years, 2015)).toBe(2)
+    expect(getTimelinePositionForYear(years, 2010)).toBe(1)
+  })
+
+  it('returns zero for empty and single-year timelines', () => {
+    expect(getTimelinePositionForYear([], 2020)).toBe(0)
+    expect(getTimelinePositionForYear([2020], 2020)).toBe(0)
+  })
+})
+
+describe('getTimelineYearFromPosition', () => {
+  it('maps visual slider positions back to the nearest data year', () => {
+    const years = [2000, 2010, 2011]
+
+    expect(getTimelineYearFromPosition(years, 0)).toBe(2000)
+    expect(getTimelineYearFromPosition(years, 0.49)).toBe(2000)
+    expect(getTimelineYearFromPosition(years, 0.5)).toBe(2010)
+    expect(getTimelineYearFromPosition(years, 1.49)).toBe(2010)
+    expect(getTimelineYearFromPosition(years, 1.5)).toBe(2011)
+    expect(getTimelineYearFromPosition(years, 2)).toBe(2011)
+  })
+
+  it('sorts input years and clamps positions outside the slider range', () => {
+    const years = [2011, 2000, 2010]
+
+    expect(getTimelineYearFromPosition(years, -1)).toBe(2000)
+    expect(getTimelineYearFromPosition(years, 3)).toBe(2011)
+    expect(getTimelineYearFromPosition(years, 1)).toBe(2010)
+  })
+
+  it('falls back to zero for an empty timeline', () => {
+    expect(getTimelineYearFromPosition([], 1)).toBe(0)
   })
 })
 

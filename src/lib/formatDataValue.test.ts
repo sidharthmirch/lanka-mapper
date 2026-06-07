@@ -10,6 +10,13 @@ describe('getUnitScaleKind', () => {
     expect(getUnitScaleKind('million LKR')).toBe('million')
   })
 
+  it('detects thousands-scale units', () => {
+    expect(getUnitScaleKind("'000")).toBe('thousand')
+    expect(getUnitScaleKind("’000")).toBe('thousand')
+    expect(getUnitScaleKind("Population ('000)")).toBe('thousand')
+    expect(getUnitScaleKind('thousand persons')).toBe('thousand')
+  })
+
   it('detects billions-scale units', () => {
     expect(getUnitScaleKind('Rs. Bn')).toBe('billion')
     expect(getUnitScaleKind('billion')).toBe('billion')
@@ -22,10 +29,22 @@ describe('getUnitScaleKind', () => {
 })
 
 describe('formatMetricValue', () => {
-  it('does not stack K on millions-valued units (5800 Mn → 5,800 Mn)', () => {
-    expect(formatMetricValue(5800, 'Mn.', 'compact')).toBe(`5,800${NBSP}Mn.`)
+  it('compact map tooltips normalize magnitude units to base notation', () => {
+    expect(formatMetricValue(5800, 'Mn.', 'compact')).toBe('5.8B')
+    expect(formatMetricValue(5800, 'Rs. Mn', 'compact')).toBe(`Rs${NBSP}5.8B`)
+    expect(formatMetricValue(1.25, 'Rs. Bn', 'compact')).toBe(`Rs${NBSP}1.3B`)
+    expect(formatMetricValue(1190.9, "'000", 'compact')).toBe('1.2M')
+    expect(formatMetricValue(491.1222, "Population ('000)", 'compact')).toBe(`491K${NBSP}Population`)
+    expect(formatMetricValue(42, 'thousand persons', 'compact')).toBe(`42K${NBSP}persons`)
+  })
+
+  it('comfortable tables/sidebar preserve the authored scale faithfully', () => {
     expect(formatMetricValue(5800, 'Mn.', 'comfortable')).toBe(`5,800${NBSP}Mn.`)
-    expect(formatMetricValue(5800, 'Rs. Mn', 'compact')).toBe(`5,800${NBSP}Rs. Mn`)
+    expect(formatMetricValue(80, 'Rs. Mn', 'comfortable')).toBe(`80${NBSP}Rs. Mn`)
+    expect(formatMetricValue(1.25, 'Rs. Bn', 'comfortable')).toBe(`1.25${NBSP}Rs. Bn`)
+    expect(formatMetricValue(12, 'billion people', 'comfortable')).toBe(`12${NBSP}billion people`)
+    expect(formatMetricValue(1190.9, "’000", 'comfortable')).toBe(`1,190.9${NBSP}’000`)
+    expect(formatMetricValue(42, 'thousand persons', 'comfortable')).toBe(`42${NBSP}thousand persons`)
   })
 
   it('still uses K/M for generic units in compact mode', () => {

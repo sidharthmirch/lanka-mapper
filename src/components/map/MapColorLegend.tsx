@@ -37,22 +37,21 @@ export default function MapColorLegend({
 
   return (
     <Box
-      className="pointer-events-none absolute right-4 top-4 z-[855] rounded-xl border border-[var(--outline)] bg-[var(--surface)]/92 shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md"
+      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
       sx={{
-        minWidth: 200,
-        maxWidth: 300,
-        px: 2.25,
-        py: 2,
+        width: { xs: 'min(220px, calc(100vw - 24px))', lg: 240, xl: 272 },
+        px: 1.5,
+        py: 1.25,
       }}
     >
-      <Typography variant="caption" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.12em] opacity-65">
+      <Typography variant="caption" className="mb-1.5 block text-[10px] font-semibold opacity-70">
         Scale
       </Typography>
       <Box className="mb-2 h-2 w-full rounded-full" style={{ background: REGION_SHADING_GRADIENT_CSS }} />
       <Box className="grid grid-cols-3 gap-x-2 text-[11px] font-semibold tabular-nums leading-snug text-[var(--on-surface)] opacity-90">
-        <span className="min-w-0 break-words text-left [overflow-wrap:anywhere]">{fmt(animMin, unit, 'compact')}</span>
-        <span className="min-w-0 text-center [overflow-wrap:anywhere]">{fmt(mid, unit, 'compact')}</span>
-        <span className="min-w-0 break-words text-right [overflow-wrap:anywhere]">{fmt(animMax, unit, 'compact')}</span>
+        <span className="min-w-0 truncate text-left">{fmt(animMin, unit, 'compact')}</span>
+        <span className="min-w-0 truncate text-center">{fmt(mid, unit, 'compact')}</span>
+        <span className="min-w-0 truncate text-right">{fmt(animMax, unit, 'compact')}</span>
       </Box>
     </Box>
   )

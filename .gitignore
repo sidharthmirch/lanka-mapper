@@ -14,5 +14,10 @@ package-lock 2.json
 # Ignore Copilot CLI local codex state
 .codex/
 
-# Local agents / session files
+# Static export output (built in CI for Pages)
+out/
+
+# Local agents / session / tooling files
 AGENTS.md
+.agents/
+.claude/

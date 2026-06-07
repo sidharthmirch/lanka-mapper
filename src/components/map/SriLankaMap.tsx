@@ -6,6 +6,7 @@ import type { Layer, LeafletMouseEvent, PathOptions, StyleFunction } from 'leafl
 import type { MutableRefObject } from 'react'
 import { centerOfMass } from '@turf/turf'
 import type { ColorScale, MapData } from '@/types'
+import { applyGeoJsonStyle } from '@/lib/geoJsonStyleSync'
 import { formatMetricValue } from '@/lib/formatDataValue'
 import { DEFAULT_ACCENT_ID, getAccentPreset } from '@/lib/uiThemePresets'
 
@@ -20,6 +21,7 @@ interface SriLankaMapProps {
   showTooltips: boolean
   showChoropleth: boolean
   showCentroids: boolean
+  /** Warm dark theme variant for the basemap tiles and polygon strokes. */
   isDarkMode: boolean
   /** Dataset unit label (e.g. LKR, %) appended in tooltips. */
   unit: string | null
@@ -417,9 +419,12 @@ export default function SriLankaMap({
   }, [colorScale, districtDataMap, districtGeojson, showCentroids])
 
   const districtPolygonStyle = useMemo(() => {
+    const noDataFill = isDarkMode ? '#2c2820' : '#ece5d8'
+    const noDataStroke = isDarkMode ? '#4a4337' : '#cfc5b2'
+    const sepStroke = isDarkMode ? '#26221b' : '#fdfbf6'
     return (feature: DistrictFeature | undefined): PathOptions => {
       if (!feature) {
-        return { fillColor: '#e0e0e0', fillOpacity: 0.5, color: '#9e9e9e', weight: 1 }
+        return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
       }
 
       const districtName = feature.properties?.name ?? ''
@@ -430,25 +435,28 @@ export default function SriLankaMap({
         return {
           fillColor: 'transparent',
           fillOpacity: 0,
-          color: isSelected ? accentColor : (isDarkMode ? '#596273' : '#c8d4e3'),
+          color: isSelected ? accentColor : noDataStroke,
           weight: isSelected ? 2 : 1,
           opacity: isSelected ? 0.95 : 0.7,
         }
       }
 
       return {
-        fillColor: value > 0 ? getColorForValue(value, colorScale) : '#f5f5f5',
-        fillOpacity: isSelected ? 0.92 : (isDarkMode ? 0.74 : 0.82),
-        color: isSelected ? accentColor : (isDarkMode ? '#505a67' : '#ffffff'),
+        fillColor: value > 0 ? getColorForValue(value, colorScale) : noDataFill,
+        fillOpacity: isSelected ? 0.92 : 0.82,
+        color: isSelected ? accentColor : sepStroke,
         weight: isSelected ? 2.5 : 1,
       }
     }
   }, [accentColor, colorScale, districtDataMap, isDarkMode, selectedDistrict, showChoropleth])
 
   const provincePolygonStyle = useMemo(() => {
+    const noDataFill = isDarkMode ? '#2c2820' : '#ece5d8'
+    const noDataStroke = isDarkMode ? '#4a4337' : '#cfc5b2'
+    const sepStroke = isDarkMode ? '#26221b' : '#fdfbf6'
     return (feature: ProvinceFeature | undefined): PathOptions => {
       if (!feature) {
-        return { fillColor: '#e0e0e0', fillOpacity: 0.5, color: '#9e9e9e', weight: 1 }
+        return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
       }
 
       const provinceName = feature.properties?.name ?? ''
@@ -459,20 +467,20 @@ export default function SriLankaMap({
         return {
           fillColor: 'transparent',
           fillOpacity: 0,
-          color: isSelected ? accentColor : (isDarkMode ? '#596273' : '#c8d4e3'),
+          color: isSelected ? accentColor : noDataStroke,
           weight: isSelected ? 2 : 1,
           opacity: isSelected ? 0.95 : 0.7,
         }
       }
 
       return {
-        fillColor: value > 0 ? getColorForValue(value, colorScale) : '#f5f5f5',
-        fillOpacity: isSelected ? 0.92 : (isDarkMode ? 0.74 : 0.82),
-        color: isSelected ? accentColor : (isDarkMode ? '#505a67' : '#ffffff'),
+        fillColor: value > 0 ? getColorForValue(value, colorScale) : noDataFill,
+        fillOpacity: isSelected ? 0.92 : 0.82,
+        color: isSelected ? accentColor : sepStroke,
         weight: isSelected ? 2.5 : 1,
       }
     }
-  }, [accentColor, colorScale, isDarkMode, provinceDataMap, selectedProvince, showChoropleth])
+  }, [accentColor, colorScale, provinceDataMap, isDarkMode, selectedProvince, showChoropleth])
 
   const clearTooltip = () => {
     centroidHoverRef.current = null
@@ -652,7 +660,7 @@ export default function SriLankaMap({
     const layer = geoJsonRef.current
     if (!layer) return
     const styleFn = activeStyle as unknown as StyleFunction
-    layer.setStyle(styleFn)
+    applyGeoJsonStyle(layer, styleFn)
   }, [activeStyle, data, colorScale, accentColor, selectedDistrict, selectedProvince])
 
   return (
@@ -668,11 +676,16 @@ export default function SriLankaMap({
       >
         <ZoomControl position="bottomright" />
         <MapLayoutInvalidate layoutEpoch={sidebarOpen} />
+        {/* Quiet, low-chroma basemap so the warm choropleth is the hero, not the
+            map chrome — consistent with the artifacts hub's map surfaces. */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          key={isDarkMode ? 'carto-dark' : 'carto-light'}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={isDarkMode
             ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'}
+          subdomains="abcd"
+          maxZoom={20}
         />
 
         {activeChoroplethGeojson && (
@@ -705,7 +718,7 @@ export default function SriLankaMap({
               pane="markerPane"
               radius={Math.max(6, Math.min(32, (normalized * 26) + 6))}
               pathOptions={{
-                color: isSelected ? accentColor : '#ffffff',
+                color: isSelected ? accentColor : '#fdfbf6',
                 weight: isSelected ? 3 : 1.5,
                 fillColor: getColorForValue(value, colorScale),
                 fillOpacity: 0.85,
@@ -764,38 +777,38 @@ export default function SriLankaMap({
 
       {showTooltips && hoverTooltip && (
         <div
-          className="pointer-events-none absolute z-[1200] max-w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-xl border px-3 py-2 shadow-lg backdrop-blur"
+          className="pointer-events-none absolute z-[1200] max-w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-lg border px-3 py-2 shadow-md"
           style={{
             left: hoverTooltip.x + 14,
             top: hoverTooltip.y + 12,
             borderColor: 'var(--outline)',
-            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+            background: 'var(--surface)',
             color: 'var(--on-surface)',
             ...(hoverTooltip.centroid
-              ? { boxShadow: '0 10px 28px color-mix(in srgb, var(--primary) 14%, transparent)' }
+              ? { boxShadow: 'var(--shadow-md)' }
               : {}),
           }}
         >
           {hoverTooltip.centroid && (
-            <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--primary)]">
+            <div className="mb-1 text-[9px] font-semibold text-[var(--primary)]">
               Centroid
             </div>
           )}
-          <div className="text-[10px] font-medium uppercase tracking-wider text-gray-500">Province</div>
+          <div className="text-[10px] font-medium text-[var(--ink-2)]">Province</div>
           <div className="text-xs font-semibold break-words line-clamp-2">{hoverTooltip.provinceName}</div>
           {showDistrictInTooltip(datasetLevel, showCentroids, hoverTooltip) && hoverTooltip.districtName && (
             <>
-              <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">District</div>
+              <div className="mt-1 text-[10px] font-medium text-[var(--ink-2)]">District</div>
               <div className="text-sm font-semibold break-words line-clamp-2">{hoverTooltip.districtName}</div>
             </>
           )}
           {hoverTooltip.formattedValue ? (
             <>
-              <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">Value</div>
+              <div className="mt-1 text-[10px] font-medium text-[var(--ink-2)]">Value</div>
               <div className="break-words text-base font-bold text-[var(--primary)]">{hoverTooltip.formattedValue}</div>
             </>
           ) : (
-            <div className="text-xs italic text-gray-400">No data available</div>
+            <div className="text-xs italic text-[var(--ink-3)]">No data available</div>
           )}
         </div>
       )}

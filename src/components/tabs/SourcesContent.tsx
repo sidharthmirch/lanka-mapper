@@ -77,7 +77,7 @@ export default function SourcesContent() {
       className="h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
       sx={{ color: 'var(--on-surface)' }}
     >
-      <Typography variant="h5" className="font-semibold tracking-tight">
+      <Typography variant="h5" className="font-semibold">
         Data sources
       </Typography>
       <Typography variant="body2" className="mt-2 max-w-[52rem] opacity-80">
@@ -88,7 +88,7 @@ export default function SourcesContent() {
       </Typography>
 
       <Box className="mt-8 grid gap-6 lg:grid-cols-2">
-        <Box className="rounded-2xl border border-[var(--outline)] bg-[var(--surface-variant)]/35 p-4">
+        <Box className="rounded-lg border border-[var(--outline)] bg-[var(--surface-variant)]/35 p-4">
           <Typography variant="subtitle2" className="font-semibold">
             Lanka Data Foundation (LDFLK)
           </Typography>
@@ -105,7 +105,7 @@ export default function SourcesContent() {
           </Box>
         </Box>
 
-        <Box className="rounded-2xl border border-[var(--outline)] bg-[var(--surface-variant)]/35 p-4">
+        <Box className="rounded-lg border border-[var(--outline)] bg-[var(--surface-variant)]/35 p-4">
           <Typography variant="subtitle2" className="font-semibold">
             Lanka Data Search (LDS)
           </Typography>
@@ -134,7 +134,7 @@ export default function SourcesContent() {
         {UPSTREAM_SOURCES.map((row) => (
           <Box
             key={row.name}
-            className="flex flex-col rounded-xl border border-[var(--outline)]/90 bg-[var(--surface)]/50 p-3"
+            className="flex flex-col rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/50 p-3"
           >
             <Box className="flex items-start justify-between gap-2">
               <Typography variant="subtitle2" className="font-semibold leading-snug">

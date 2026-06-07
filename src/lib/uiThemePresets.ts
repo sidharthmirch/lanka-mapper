@@ -1,85 +1,72 @@
-/** Accent colors for MUI `primary` and CSS `--primary`. */
-export const DEFAULT_ACCENT_ID = 'ocean'
-export const DEFAULT_GRADIENT_ID = 'ocean'
+/** Accent colors for MUI `primary` and CSS `--primary`. Warm-neutral hub palette. */
+export const DEFAULT_ACCENT_ID = 'terracotta'
+export const DEFAULT_GRADIENT_ID = 'terracotta'
 
 export const ACCENT_PRESETS = [
   {
-    id: 'ocean',
-    label: 'Ocean',
-    main: '#2f8fcd',
-    dark: '#216a9b',
-    light: '#79bde8',
-    /** Soft neutral — easy on dark UI / map chrome. */
-    soft: '#d5dfe8',
+    id: 'terracotta',
+    label: 'Terracotta',
+    main: '#b45830',
+    dark: '#8f4424',
+    light: '#c97a52',
+    /** Soft warm tint — for subtle selected/hover surfaces. */
+    soft: '#ead9cb',
   },
   {
-    id: 'forest',
-    label: 'Forest',
-    main: '#2d7a4e',
-    dark: '#1e5634',
-    light: '#5cb884',
-    soft: '#d5e5dc',
+    id: 'green',
+    label: 'Green',
+    main: '#3b665a',
+    dark: '#2c4d44',
+    light: '#6a9286',
+    soft: '#d8e3dd',
   },
   {
-    id: 'violet',
-    label: 'Violet',
-    main: '#6b4fc6',
-    dark: '#4f36a3',
-    light: '#9b87e8',
-    soft: '#e2deef',
-  },
-  {
-    id: 'ember',
-    label: 'Ember',
-    main: '#c45c26',
-    dark: '#9a4418',
-    light: '#e8925c',
-    soft: '#ebe4df',
+    id: 'gold',
+    label: 'Gold',
+    main: '#8f6b3d',
+    dark: '#6f5230',
+    light: '#b08a5b',
+    soft: '#e8ddc9',
   },
   {
     id: 'slate',
     label: 'Slate',
-    main: '#475569',
-    dark: '#334155',
-    light: '#94a3b8',
-    soft: '#d8dce3',
+    main: '#5b5448',
+    dark: '#443e35',
+    light: '#8a8174',
+    soft: '#ddd6c9',
   },
 ] as const
 
 export type AccentPresetId = (typeof ACCENT_PRESETS)[number]['id']
 
-/** Choropleth / region shading ramps (6 stops, low → high). */
+/** Choropleth / region shading ramps (6 stops, low → high). Warm-neutral hub palette. */
 export const GRADIENT_PRESETS = [
   {
-    id: 'ocean',
-    label: 'Ocean',
-    /** Low stop: tinted gray (not near-white) so light UI / map stays easy on the eyes. */
-    colors: ['#dfe8f4', '#c0d8f5', '#7cb3e8', '#3d8fd6', '#1f68ad', '#17457a'],
+    id: 'terracotta',
+    label: 'Terracotta',
+    /** Low stop: warm cream (not white) so light map chrome stays easy on the eyes. */
+    colors: ['#f1e4d7', '#e7c4a4', '#d79a6e', '#c2703f', '#a04a22', '#6f3216'],
   },
   {
-    id: 'forest',
-    label: 'Forest',
-    colors: ['#ddeee4', '#b8dcc4', '#6fb88a', '#3d8f5c', '#2d6a45', '#1a4029'],
+    id: 'green',
+    label: 'Green',
+    colors: ['#e4ece2', '#bdd6c4', '#8cbb9d', '#579577', '#386b54', '#214234'],
   },
   {
-    id: 'magma',
-    label: 'Magma',
-    colors: ['#f2e6d8', '#fdd49e', '#fc8d59', '#e34a33', '#b30000', '#490006'],
+    id: 'gold',
+    label: 'Gold',
+    colors: ['#f3ead8', '#e6cf9f', '#d2ab63', '#b5853b', '#8a6330', '#5c4220'],
   },
   {
-    id: 'purple',
-    label: 'Purple',
-    colors: ['#eae2f3', '#d4c4f0', '#a78bda', '#7b52c4', '#5a32a8', '#3a1f6e'],
+    id: 'slate',
+    label: 'Slate',
+    colors: ['#ece7dc', '#d6cdbb', '#b6aa92', '#90876f', '#665e50', '#3d382f'],
   },
   {
-    id: 'grayscale',
-    label: 'Grayscale',
-    colors: ['#eceff2', '#dee2e6', '#adb5bd', '#6c757d', '#495057', '#212529'],
-  },
-  {
-    id: 'teal',
-    label: 'Teal',
-    colors: ['#dff3ef', '#b2ebe0', '#5fd4c4', '#2db5a8', '#1a7f76', '#0d4d47'],
+    id: 'oxblood',
+    label: 'Oxblood',
+    colors: ['#f0e2da', '#dcae9a', '#c47a5f', '#a64a30', '#7e2c1a', '#4d180e'],
   },
 ] as const
 

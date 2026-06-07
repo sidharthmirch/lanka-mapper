@@ -40,6 +40,7 @@ export type FormatMetricOptions = {
 
 /** Stable locale so map/sidebar numbers match across browsers and CI. */
 const VALUE_LOCALE = 'en-US'
+const NBSP = '\u00a0'
 
 function applySignificantDigits(value: number, maxSig: number): number {
   if (maxSig <= 0 || !Number.isFinite(value) || value === 0) return value
@@ -72,7 +73,7 @@ export function isDisplayableUnit(unit: string | null | undefined): boolean {
   return !NON_DISPLAY_UNITS.has(t.toLowerCase())
 }
 
-type UnitScaleKind = 'percent' | 'million' | 'billion' | 'generic'
+type UnitScaleKind = 'percent' | 'thousand' | 'million' | 'billion' | 'generic'
 
 /**
  * Single-pass magnitude-suffix detection. We match once per kind instead of
@@ -83,6 +84,8 @@ type UnitScaleKind = 'percent' | 'million' | 'billion' | 'generic'
  */
 const BILLION_RE = /\b(?:bn|billion)\.?\b/i
 const MILLION_RE = /\b(?:mn|million)\.?\b/i
+const THOUSAND_RE = /(?:['’`]\s*0{3}|\bthousand(?:s)?\.?\b)/i
+const SCALE_TOKEN_RE = /(?:\b(?:bn|billion|mn|million|thousand(?:s)?)\.?\b|['’`]\s*0{3})/gi
 
 export function getUnitScaleKind(unit: string): UnitScaleKind {
   const t = unit.trim()
@@ -91,11 +94,40 @@ export function getUnitScaleKind(unit: string): UnitScaleKind {
   if (lower === '%' || lower === 'percent') return 'percent'
   if (BILLION_RE.test(t)) return 'billion'
   if (MILLION_RE.test(t)) return 'million'
+  if (THOUSAND_RE.test(t)) return 'thousand'
   return 'generic'
 }
 
 function isEffectivelyInteger(value: number): boolean {
   return Math.abs(value - Math.round(value)) < 1e-9
+}
+
+function compactFractionDigits(value: number): number {
+  const abs = Math.abs(value)
+  if (abs >= 100) return 0
+  return 1
+}
+
+function formatCompactNumber(value: number, useGrouping = true, maxSig = 0): string {
+  if (!Number.isFinite(value)) return '—'
+  let v = value
+  if (maxSig > 0) {
+    v = applySignificantDigits(value, maxSig)
+  }
+
+  const abs = Math.abs(v)
+  const compactScales: Array<{ threshold: number; suffix: string }> = [
+    { threshold: 1_000_000_000, suffix: 'B' },
+    { threshold: 1_000_000, suffix: 'M' },
+    { threshold: 1_000, suffix: 'K' },
+  ]
+
+  const scale = compactScales.find((entry) => abs >= entry.threshold)
+  if (!scale) return formatPreferredNumeric(v, useGrouping, maxSig)
+
+  const scaled = v / scale.threshold
+  const formatted = formatWithGrouping(scaled, useGrouping, { max: compactFractionDigits(scaled) })
+  return `${formatted}${scale.suffix}`
 }
 
 /** Integers when whole; otherwise a modest number of fraction digits. */
@@ -147,21 +179,46 @@ function formatGenericMagnitude(
     v = applySignificantDigits(value, maxSig)
   }
 
-  if (v >= 1_000_000) {
-    const q = v / 1_000_000
-    if (isEffectivelyInteger(q)) {
-      return `${formatWithGrouping(Math.round(q), useGrouping)}M`
-    }
-    return `${q.toFixed(1)}M`
-  }
-  if (v >= 1000) {
-    const q = v / 1000
-    if (isEffectivelyInteger(q)) {
-      return `${formatWithGrouping(Math.round(q), useGrouping)}K`
-    }
-    return `${q.toFixed(1)}K`
-  }
-  return formatPreferredNumeric(v, useGrouping, maxSig)
+  return formatCompactNumber(v, useGrouping, maxSig)
+}
+
+function unitInputMultiplier(scale: UnitScaleKind): number {
+  if (scale === 'billion') return 1_000_000_000
+  if (scale === 'million') return 1_000_000
+  if (scale === 'thousand') return 1_000
+  return 1
+}
+
+function normalizeScaledUnitLabel(unit: string): string {
+  const label = unit
+    .replace(SCALE_TOKEN_RE, '')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[.,]+$/g, '')
+    .trim()
+
+  if (/^rs\.?$/i.test(label)) return 'Rs'
+  if (/^lkr$/i.test(label)) return 'LKR'
+  return label
+}
+
+function isCurrencyLabel(label: string): boolean {
+  return /^(?:rs|lkr|usd|eur|gbp|\$|£|€)$/i.test(label)
+}
+
+function formatScaledUnitValue(
+  value: number,
+  unit: string,
+  scale: UnitScaleKind,
+  useGrouping = true,
+  maxSig = 0,
+): string {
+  const baseValue = value * unitInputMultiplier(scale)
+  const num = formatCompactNumber(baseValue, useGrouping, maxSig || 3)
+  const label = normalizeScaledUnitLabel(unit)
+  if (!label) return num
+  if (isCurrencyLabel(label)) return `${label}${NBSP}${num}`
+  return `${num}${NBSP}${label}`
 }
 
 /**
@@ -194,11 +251,18 @@ export function formatMetricValue(
     return formatPercentValue(value, useGrouping, maxSig)
   }
 
-  if (scale === 'million' || scale === 'billion') {
-    const num = formatPreferredNumeric(value, useGrouping, maxSig)
-    return `${num}\u00a0${u}`
+  // Magnitude-bearing units (Mn., Bn., '000 …): on dense map tooltips, normalize
+  // to the base value and compact it (5800 "Rs. Mn" → "Rs 5.8B"). Everywhere else
+  // (tables, sidebar, charts) preserve the authored scale faithfully — grouped
+  // digits plus the original unit, never a stacked K/M (5800 "Rs. Mn" → "5,800 Rs. Mn").
+  if (scale === 'thousand' || scale === 'million' || scale === 'billion') {
+    if (density === 'compact') {
+      return formatScaledUnitValue(value, u, scale, useGrouping, maxSig)
+    }
+    const preserved = formatPreferredNumeric(value, useGrouping, maxSig)
+    return `${preserved}${NBSP}${u}`
   }
 
   const num = formatGenericMagnitude(value, density, useGrouping, maxSig)
-  return `${num}\u00a0${u}`
+  return `${num}${NBSP}${u}`
 }

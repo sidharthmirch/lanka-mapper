@@ -39,6 +39,50 @@ export function playbackFrameLinearYear(frame: PlaybackFrame): number {
   return frame.y0 + (frame.y1 - frame.y0) * frame.t
 }
 
+function sortedTimelineYears(years: number[]): number[] {
+  return [...years].sort((a, b) => a - b)
+}
+
+/**
+ * Converts a calendar year to an ordinal timeline position. This keeps sparse
+ * economic series visually even while still interpolating within each real year gap.
+ */
+export function getTimelinePositionForYear(years: number[], year: number): number {
+  const sorted = sortedTimelineYears(years)
+  if (sorted.length < 2) return 0
+  if (year <= sorted[0]) return 0
+  const lastIndex = sorted.length - 1
+  if (year >= sorted[lastIndex]) return lastIndex
+
+  for (let index = 0; index < lastIndex; index++) {
+    const y0 = sorted[index]
+    const y1 = sorted[index + 1]
+    if (year <= y1) {
+      const gap = y1 - y0
+      if (gap <= 0) return index
+      return index + (year - y0) / gap
+    }
+  }
+
+  return lastIndex
+}
+
+/** Converts the ordinal slider position back to the closest available data year. */
+export function getTimelineYearFromPosition(years: number[], position: number): number {
+  const sorted = sortedTimelineYears(years)
+  if (sorted.length === 0) return 0
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.round(position)))
+  return sorted[index]
+}
+
+export function getPlaybackStartFrameIndex(schedule: PlaybackFrame[], currentYear: number): number {
+  if (schedule.length === 0) return 0
+  const finalYear = playbackFrameLinearYear(schedule[schedule.length - 1])
+  if (currentYear >= finalYear) return 0
+  const idx = schedule.findIndex((frame) => playbackFrameLinearYear(frame) >= currentYear)
+  return idx === -1 ? 0 : idx
+}
+
 /**
  * Integer calendar year for on-screen labels (header, tooltips). Decimal year text
  * reads as flicker during playback; round the linear year to the nearest integer
