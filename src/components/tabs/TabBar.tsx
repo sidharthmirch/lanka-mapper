@@ -117,9 +117,9 @@ export default function TabBar({
     return fuse.search(q).map((r) => r.item).slice(0, MAX_FUSE_RESULTS)
   }, [fuse, inputValue, sortedManifest])
 
-  // Quick actions when the sidebar is collapsed: random pick on map + plots
-  // (both can shuffle a dataset); region shading is map-only.
-  const showCollapsedActions = !sidebarOpen && (currentTab === 'map' || currentTab === 'plots')
+  // Quick actions when the sidebar is collapsed: random pick on map / plots /
+  // table (each can shuffle a dataset); region shading is map-only.
+  const showCollapsedActions = !sidebarOpen && currentTab !== 'sources'
 
   return (
     <div

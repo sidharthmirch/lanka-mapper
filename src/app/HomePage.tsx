@@ -260,23 +260,19 @@ export default function HomePage() {
     && Object.keys(seriesData).length > 0,
   )
 
-  const randomPickDisabled = useMemo(() => {
-    const candidates =
-      currentTab === 'map'
-        ? datasetManifest.filter((d) => d.hasGeo)
-        : currentTab === 'plots'
-          ? datasetManifest.filter((d) => d.hasTime)
-          : []
-    return candidates.length === 0
+  // Random-pick candidates per tab: map → geographic, plots → time series,
+  // table → any dataset (all have a table). Sources has no dataset view.
+  const randomCandidates = useMemo(() => {
+    if (currentTab === 'map') return datasetManifest.filter((d) => d.hasGeo)
+    if (currentTab === 'plots') return datasetManifest.filter((d) => d.hasTime)
+    if (currentTab === 'table') return datasetManifest
+    return []
   }, [currentTab, datasetManifest])
 
+  const randomPickDisabled = randomCandidates.length === 0
+
   const handleRandomPick = useCallback(() => {
-    const candidates =
-      currentTab === 'map'
-        ? datasetManifest.filter((d) => d.hasGeo)
-        : currentTab === 'plots'
-          ? datasetManifest.filter((d) => d.hasTime)
-          : []
+    const candidates = randomCandidates
     if (candidates.length === 0) return
     const pick = candidates[Math.floor(Math.random() * candidates.length)]
     if (pick.years.length === 0) return
@@ -286,7 +282,7 @@ export default function HomePage() {
     playbackScheduleRef.current = []
     playbackStepIndexRef.current = 0
     void loadDataset(pick.id, y, selectedMetric ?? undefined)
-  }, [currentTab, datasetManifest, loadDataset, selectedMetric, setPlaybackLinearYearSync])
+  }, [randomCandidates, loadDataset, selectedMetric, setPlaybackLinearYearSync])
 
   const theme = useMemo(() => {
     const accent = getAccentUiPalette(accentPresetId, accentTone, isDarkMode)
@@ -567,7 +563,7 @@ export default function HomePage() {
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
                 sidebarOpen={sidebarOpen}
-                showRandom={currentTab === 'map' || currentTab === 'plots'}
+                showRandom={currentTab === 'map' || currentTab === 'plots' || currentTab === 'table'}
                 randomDisabled={randomPickDisabled}
                 onRandomPick={handleRandomPick}
                 showChoropleth={showChoropleth}

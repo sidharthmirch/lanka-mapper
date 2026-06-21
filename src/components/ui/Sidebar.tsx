@@ -332,7 +332,7 @@ export default function Sidebar({
     return `${additive ? 'Total' : 'Average'}${scope}`
   }, [currentDatasetLevel, additive])
 
-  const showRandom = (currentTab === 'map' || currentTab === 'plots') && onRandomPick
+  const showRandom = currentTab !== 'sources' && onRandomPick
 
   return (
     <motion.div
