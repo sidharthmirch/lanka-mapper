@@ -10,7 +10,7 @@ async function openTimeMapDataset(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
   await page.waitForSelector('.leaflet-container', { timeout: 30000 })
 
-  await page.getByPlaceholder('Search to open a dataset…').fill('Accommodations by District')
+  await page.getByPlaceholder('Search the catalog').fill('Accommodations by District')
   await page.waitForSelector('[role="option"]', { timeout: 15000 })
   await page.getByRole('option').filter({ hasText: 'Accommodations by District' }).click()
   await page.waitForLoadState('networkidle')
@@ -71,27 +71,16 @@ test('small map viewport keeps controls from colliding', async ({ page }) => {
   })
 
   expect(overlayState.scalePlayerOverlap).toBe(0)
-  expect(overlayState.visibleRegionRows).toBe(0)
+  // Rankings auto-collapse on a short/narrow viewport so they don't cover the map.
+  expect(await page.locator('[data-testid="ranking-row"]:visible').count()).toBe(0)
 
   await expect(page.getByRole('button', { name: 'Random dataset' })).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'Region shading' })).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'Show centroid points' })).toBeVisible()
 
+  // Expanding the panel reveals the ranking rows.
   await page.getByRole('button', { name: 'Top Regions' }).click()
-  const expandedRegionRows = await page.evaluate(() => {
-    const isVisible = (el: Element | null) => {
-      if (!el) return false
-      const rect = el.getBoundingClientRect()
-      const style = window.getComputedStyle(el)
-      return rect.width > 1 && rect.height > 1 && style.display !== 'none' && style.visibility !== 'hidden'
-    }
-    const panel = Array.from(document.querySelectorAll('#main-content *')).find(
-      (el) => el.textContent?.trim() === 'Top Regions',
-    )?.parentElement
-    if (!panel) return 0
-    return Array.from(panel.querySelectorAll('button')).filter(
-      (button) => !button.textContent?.includes('Top Regions') && isVisible(button),
-    ).length
-  })
-  expect(expandedRegionRows).toBeGreaterThan(0)
+  await expect
+    .poll(() => page.locator('[data-testid="ranking-row"]:visible').count(), { timeout: 5000 })
+    .toBeGreaterThan(0)
 })

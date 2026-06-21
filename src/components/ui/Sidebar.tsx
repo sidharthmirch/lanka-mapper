@@ -19,10 +19,8 @@ import {
   Divider,
   Slider,
   Switch,
-  TextField,
   Button,
   Tooltip,
-  Autocomplete,
   Link,
   CircularProgress,
 } from '@mui/material'
@@ -36,6 +34,7 @@ import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
 import { useAppStore } from '@/store'
 import { useAnimatedScalar } from '@/hooks/useAnimatedScalar'
 import { ACCENT_PRESETS, GRADIENT_PRESETS, REGION_SHADING_GRADIENT_CSS } from '@/lib/uiThemePresets'
+import PlotSeriesPicker from '@/components/tabs/PlotSeriesPicker'
 
 interface SidebarProps {
   /** Expanded (full panel) vs collapsed (narrow rail). */
@@ -266,10 +265,6 @@ export default function Sidebar({
     () => Object.keys(seriesData).sort((a, b) => a.localeCompare(b)),
     [seriesData],
   )
-
-  const allSeriesSelected = seriesNames.length > 0
-    && plotSeriesSelection.length === seriesNames.length
-    && seriesNames.every((n) => plotSeriesSelection.includes(n))
 
   // `data` identity changes on every playback frame; without memoization
   // the stats + maxItem reductions (and the province-dedupe Map build) run
@@ -529,43 +524,12 @@ export default function Sidebar({
               )}
 
               {currentTab === 'plots' && seriesNames.length > 0 && (
-                <Box className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/58 px-3 py-2">
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={seriesNames}
-                    value={plotSeriesSelection.filter((n) => seriesNames.includes(n))}
-                    onChange={(_, value) => {
-                      onPlotSeriesSelectionChange(value)
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Series on plot"
-                        placeholder="Search series…"
-                      />
-                    )}
-                  />
-                  <Box className="flex items-center justify-between gap-2">
-                    <Typography variant="caption" className="font-semibold opacity-80">
-                      All series
-                    </Typography>
-                    <Switch
-                      size="small"
-                      checked={allSeriesSelected}
-                      onChange={(_, checked) => {
-                        if (checked) {
-                          onPlotSeriesSelectionChange(seriesNames)
-                        } else {
-                          onPlotSeriesSelectionChange([])
-                        }
-                      }}
-                    />
-                  </Box>
-                  <Typography variant="caption" className="opacity-60 block">
-                    Off hides all lines; on includes every series. Use the field above for a subset.
-                  </Typography>
-                </Box>
+                <PlotSeriesPicker
+                  seriesNames={seriesNames}
+                  selected={plotSeriesSelection.filter((n) => seriesNames.includes(n))}
+                  onChange={onPlotSeriesSelectionChange}
+                  isDark={darkMode}
+                />
               )}
 
               <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/56 p-3 text-xs space-y-0.5">
@@ -744,27 +708,33 @@ export default function Sidebar({
                   <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
                     <CardContent className="p-4">
                       <span className="term-label">Maximum</span>
-                      <Typography variant="h6" className="mt-1 font-bold">
+                      <div className="mono mt-1.5 break-all text-[19px] font-bold leading-none text-[var(--ink)]">
                         <AnimatedMetricText
                           value={stats.max}
-                          unit={currentDatasetUnit}
+                          unit={null}
                           playbackActive={mapPlaybackActive}
                           durationMs={mapPlaybackFrameMs}
                         />
-                      </Typography>
+                      </div>
+                      {isDisplayableUnit(currentDatasetUnit) && (
+                        <div className="term-label mt-1.5 truncate">{currentDatasetUnit!.trim()}</div>
+                      )}
                     </CardContent>
                   </Card>
                   <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
                     <CardContent className="p-4">
                       <span className="term-label">Average</span>
-                      <Typography variant="h6" className="mt-1 font-bold">
+                      <div className="mono mt-1.5 break-all text-[19px] font-bold leading-none text-[var(--ink)]">
                         <AnimatedMetricText
                           value={stats.avg}
-                          unit={currentDatasetUnit}
+                          unit={null}
                           playbackActive={mapPlaybackActive}
                           durationMs={mapPlaybackFrameMs}
                         />
-                      </Typography>
+                      </div>
+                      {isDisplayableUnit(currentDatasetUnit) && (
+                        <div className="term-label mt-1.5 truncate">{currentDatasetUnit!.trim()}</div>
+                      )}
                     </CardContent>
                   </Card>
                 </Box>

@@ -680,6 +680,16 @@ export default function SriLankaMap({
         minZoom={6}
         maxZoom={14}
         zoomControl={false}
+        /* Canvas renderer: the whole choropleth paints to one canvas instead of
+           ~25 SVG <path>s, so pan/zoom no longer repaints every polygon (the
+           source of the jerky feel). Hover setStyle still works on canvas. */
+        preferCanvas
+        /* Half-step zoom + a less twitchy wheel make zooming feel continuous
+           rather than snapping a full level per notch. */
+        zoomSnap={0.5}
+        zoomDelta={0.5}
+        wheelPxPerZoomLevel={140}
+        wheelDebounceTime={30}
         style={{ height: '100%', width: '100%' }}
         className="rounded-lg"
       >
@@ -695,6 +705,10 @@ export default function SriLankaMap({
             : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'}
           subdomains="abcd"
           maxZoom={20}
+          /* Smoother pan/zoom: hold extra tiles around the edge so panning
+             doesn't flash blank, and don't re-request tiles mid zoom-animation. */
+          keepBuffer={4}
+          updateWhenZooming={false}
         />
 
         {activeChoroplethGeojson && (

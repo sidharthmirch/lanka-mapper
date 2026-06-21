@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Box, Link, Typography } from '@mui/material'
 import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
+import { getSeriesColors } from '@/lib/uiThemePresets'
 import {
   Bar,
   BarChart,
@@ -34,10 +35,6 @@ interface TimeSeriesChartProps {
   isDark?: boolean
 }
 
-// Categorical series palettes — color encodes data, so saturation is allowed.
-// Two sets so lines stay distinguishable on either the dark desk or light paper.
-const SERIES_COLORS_DARK = ['#e07d54', '#74b394', '#d6a14a', '#e07a5f', '#6ea3c2', '#c89ec0', '#9ac28f', '#eb9a78', '#b6c46a', '#d6b455']
-const SERIES_COLORS_LIGHT = ['#b45830', '#3b665a', '#8f6b3d', '#9a341f', '#4a6d8c', '#7d5a7a', '#6a9286', '#c2703f', '#5b7a3a', '#a8852f']
 const PIE_MAX_CATEGORIES = 8
 
 const MONO = 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -72,7 +69,7 @@ export default function TimeSeriesChart({
   const chrome = isDark
     ? { grid: '#2a322b', tick: '#abb1a2', tooltipBg: '#161b18', tooltipBorder: '#3a423a', text: '#ece6db' }
     : { grid: '#e2dacb', tick: '#5e574b', tooltipBg: '#fdfbf6', tooltipBorder: '#cfc5b2', text: '#22201c' }
-  const series = isDark ? SERIES_COLORS_DARK : SERIES_COLORS_LIGHT
+  const series = getSeriesColors(isDark)
 
   const tooltipProps = {
     contentStyle: {

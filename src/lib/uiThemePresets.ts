@@ -102,6 +102,19 @@ export function applyRegionShadingGradientCssVars(colors: string[]): void {
 export const REGION_SHADING_GRADIENT_CSS =
   'linear-gradient(90deg, var(--gradient-0), var(--gradient-1), var(--gradient-2), var(--gradient-3), var(--gradient-4), var(--gradient-5))'
 
+/**
+ * Categorical series palettes for the Plots tab (color encodes a data series).
+ * Two sets so lines + their picker swatches stay distinguishable on the dark
+ * desk or the light paper. Shared by TimeSeriesChart and the series picker so a
+ * series' swatch matches its line.
+ */
+export const SERIES_COLORS_DARK = ['#e07d54', '#74b394', '#d6a14a', '#e07a5f', '#6ea3c2', '#c89ec0', '#9ac28f', '#eb9a78', '#b6c46a', '#d6b455'] as const
+export const SERIES_COLORS_LIGHT = ['#b45830', '#3b665a', '#8f6b3d', '#9a341f', '#4a6d8c', '#7d5a7a', '#6a9286', '#c2703f', '#5b7a3a', '#a8852f'] as const
+
+export function getSeriesColors(isDark: boolean): readonly string[] {
+  return isDark ? SERIES_COLORS_DARK : SERIES_COLORS_LIGHT
+}
+
 function clamp255(n: number): number {
   return Math.max(0, Math.min(255, Math.round(n)))
 }

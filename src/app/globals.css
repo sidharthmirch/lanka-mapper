@@ -283,8 +283,13 @@ body {
   border-color: var(--border);
 }
 
+/*
+ * Hover smoothing ONLY on stroke. Transitioning fill / fill-opacity / opacity
+ * makes the choropleth fade in from 0 every time Leaflet repaints a path on
+ * zoom/pan — read as the gradient "glitching in and out". Stroke is safe.
+ */
 path.leaflet-interactive {
-  transition: fill-opacity 0.3s ease, stroke-width 0.2s ease, stroke 0.2s ease, fill 0.3s ease, opacity 0.2s ease;
+  transition: stroke 0.18s ease, stroke-width 0.18s ease;
 }
 
 /* ---- Controls ---- */

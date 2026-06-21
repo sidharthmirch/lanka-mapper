@@ -50,6 +50,7 @@ function RankingRow({
   return (
     <button
       type="button"
+      data-testid="ranking-row"
       onClick={() => onSelect(name)}
       className="group w-full rounded-md border border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:border-[var(--accent)]"
     >
@@ -147,6 +148,7 @@ export default function RankingsChart({
   return (
     <Box
       ref={rootRef}
+      data-testid="rankings-panel"
       className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-2.5 shadow-[var(--shadow-lg)] backdrop-blur-md sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
       sx={{
         color: 'var(--on-surface)',
