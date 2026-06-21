@@ -87,6 +87,19 @@ const out = {
   sources,
 }
 
+// Skip rewriting when the underlying CEB data hasn't changed — otherwise the
+// per-run `fetchedAt` timestamp would churn the file and trigger a commit/deploy
+// every cron tick. The scheduled host commits only when this file actually changes.
+try {
+  const prev = JSON.parse(fs.readFileSync(outPath, 'utf8'))
+  if (prev.asOf === out.asOf && prev.totalMW === out.totalMW) {
+    console.log(`CEB mix unchanged (as of ${out.asOf}); leaving snapshot in place.`)
+    process.exit(0)
+  }
+} catch {
+  // no existing snapshot — write a fresh one
+}
+
 fs.writeFileSync(outPath, JSON.stringify(out, null, 2) + '\n')
 console.log(`CEB mix as of ${out.asOf}: ${out.totalMW} MW, ${out.cleanPct}% clean -> ${outPath}`)
 console.log(sources.map((s) => `${s.label} ${s.mw}MW (${s.pct}%)`).join(', '))

@@ -1,11 +1,14 @@
 name: Refresh CEB generation snapshot
 
 # A static site can't fetch the CEB Generation Summary in-browser (no CORS), so
-# snapshot it server-side on a schedule and commit it. The push triggers the
-# Pages deploy (nextjs.yml), so the map updates with the fresh mix.
+# snapshot it server-side and commit it; the push triggers the Pages deploy.
+#
+# NOTE: GitHub's hosted runners (US) get an EMPTY response from edlcare.edl.lk —
+# the CEB endpoint geo-restricts its content to Sri Lankan IPs. So a scheduled
+# run here can't work; the refresh runs on a Sri Lanka host instead (LaunchAgent
+# com.lanka-mapper.ceb-refresh -> scripts/ceb-refresh.sh). Kept for manual
+# dispatch / documentation only.
 on:
-  schedule:
-    - cron: '17 */2 * * *' # every 2 hours
   workflow_dispatch:
 
 permissions:

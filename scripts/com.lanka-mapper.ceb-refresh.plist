@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  CEB generation-mix refresh. GitHub runners can't reach the geo-restricted CEB
+  endpoint, so refresh on a Sri Lanka host. Install:
+
+    cp scripts/com.lanka-mapper.ceb-refresh.plist ~/Library/LaunchAgents/
+    # edit the two absolute paths below to this checkout, then:
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.lanka-mapper.ceb-refresh.plist
+
+  Logs: /tmp/lanka-ceb-refresh.log. Runs at load + every 3h.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lanka-mapper.ceb-refresh</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/sidharth/Repos/lanka-mapper/scripts/ceb-refresh.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>LANKA_MAPPER_REPO</key>
+    <string>/Users/sidharth/Repos/lanka-mapper</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>10800</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/lanka-ceb-refresh.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/lanka-ceb-refresh.log</string>
+</dict>
+</plist>
