@@ -567,7 +567,7 @@ export default function HomePage() {
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
                 sidebarOpen={sidebarOpen}
-                showRandom={currentTab === 'map'}
+                showRandom={currentTab === 'map' || currentTab === 'plots'}
                 randomDisabled={randomPickDisabled}
                 onRandomPick={handleRandomPick}
                 showChoropleth={showChoropleth}

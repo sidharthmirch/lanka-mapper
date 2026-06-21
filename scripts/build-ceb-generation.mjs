@@ -58,9 +58,10 @@ function rowTotal(row) {
   return SOURCES.reduce((s, src) => s + (Number(row[src.key]) || 0), 0)
 }
 
-// Find the latest curve with real data: try today, then yesterday.
+// Find the latest curve with real data. CEB publishes with a lag (often a day
+// or two, more over weekends/holidays), so walk back from today until a day has data.
 let curve = []
-for (const offset of [0, -1, -2]) {
+for (const offset of [0, -1, -2, -3, -4, -5]) {
   const data = await getJson(`${BASE}/api/gensum/load-curve?date=${slDate(offset)}`).catch(() => [])
   if (Array.isArray(data) && data.some((r) => rowTotal(r) > 1)) {
     curve = data.filter((r) => rowTotal(r) > 1)

@@ -117,7 +117,9 @@ export default function TabBar({
     return fuse.search(q).map((r) => r.item).slice(0, MAX_FUSE_RESULTS)
   }, [fuse, inputValue, sortedManifest])
 
-  const showCollapsedSidebarMapActions = currentTab === 'map' && !sidebarOpen
+  // Quick actions when the sidebar is collapsed: random pick on map + plots
+  // (both can shuffle a dataset); region shading is map-only.
+  const showCollapsedActions = !sidebarOpen && (currentTab === 'map' || currentTab === 'plots')
 
   return (
     <div
@@ -169,7 +171,7 @@ export default function TabBar({
           ))}
         </Tabs>
 
-        {showCollapsedSidebarMapActions && (
+        {showCollapsedActions && (
           <div className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--outline)]/70 bg-[var(--surface-variant)]/40 px-1.5 py-1">
             {showRandom && (
               <Tooltip title="Random dataset">
@@ -188,14 +190,16 @@ export default function TabBar({
                 </span>
               </Tooltip>
             )}
-            <Tooltip title="Region shading">
-              <Switch
-                size="small"
-                checked={showChoropleth}
-                onChange={(_, checked) => onToggleChoropleth(checked)}
-                inputProps={{ 'aria-label': 'Region shading' }}
-              />
-            </Tooltip>
+            {currentTab === 'map' && (
+              <Tooltip title="Region shading">
+                <Switch
+                  size="small"
+                  checked={showChoropleth}
+                  onChange={(_, checked) => onToggleChoropleth(checked)}
+                  inputProps={{ 'aria-label': 'Region shading' }}
+                />
+              </Tooltip>
+            )}
           </div>
         )}
         </div>
