@@ -148,14 +148,19 @@ export default function TabBar({
             },
             '& .MuiTab-root': {
               minHeight: 38,
-              minWidth: { xs: 76, lg: 90 },
-              padding: { xs: '6px 10px', lg: '6px 12px' },
-              textTransform: 'none',
-              fontWeight: 650,
-              fontSize: { xs: 12, lg: 12.5 },
-              borderRadius: '8px',
+              minWidth: { xs: 72, lg: 84 },
+              padding: { xs: '6px 12px', lg: '6px 14px' },
+              fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              fontWeight: 600,
+              fontSize: { xs: 11, lg: 11.5 },
+              borderRadius: '6px',
               color: 'var(--on-surface-variant)',
               transition: 'background-color 180ms ease, color 180ms ease',
+            },
+            '& .MuiTab-root:hover': {
+              color: 'var(--on-surface)',
             },
             '& .MuiTab-root.Mui-selected': {
               color: 'var(--on-surface)',
@@ -272,21 +277,27 @@ export default function TabBar({
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Search to open a dataset…"
+              placeholder="Search the catalog — type a dataset, agency, or topic…"
               variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '13px',
-                  backgroundColor: 'var(--surface)',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--surface-2)',
+                  fontSize: 13.5,
                   '& fieldset': {
                     borderColor: 'var(--outline)',
                   },
                   '&:hover fieldset': {
-                    borderColor: 'var(--on-surface-variant)',
+                    borderColor: 'var(--border-2)',
                   },
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary)',
+                    borderWidth: '1px',
                   },
+                },
+                '& input::placeholder': {
+                  color: 'var(--ink-3)',
+                  opacity: 1,
                 },
               }}
             />

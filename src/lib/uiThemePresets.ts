@@ -9,23 +9,27 @@ export const ACCENT_PRESETS = [
     main: '#b45830',
     dark: '#8f4424',
     light: '#c97a52',
+    /** Bold accent tuned for the dark terminal base (brighter than `main`). */
+    darkMain: '#e07d54',
     /** Soft warm tint — for subtle selected/hover surfaces. */
     soft: '#ead9cb',
   },
   {
     id: 'green',
-    label: 'Green',
+    label: 'Sage',
     main: '#3b665a',
     dark: '#2c4d44',
     light: '#6a9286',
+    darkMain: '#74b394',
     soft: '#d8e3dd',
   },
   {
     id: 'gold',
-    label: 'Gold',
+    label: 'Amber',
     main: '#8f6b3d',
     dark: '#6f5230',
     light: '#b08a5b',
+    darkMain: '#d6a14a',
     soft: '#e8ddc9',
   },
   {
@@ -34,39 +38,44 @@ export const ACCENT_PRESETS = [
     main: '#5b5448',
     dark: '#443e35',
     light: '#8a8174',
+    darkMain: '#aab1a2',
     soft: '#ddd6c9',
   },
 ] as const
 
 export type AccentPresetId = (typeof ACCENT_PRESETS)[number]['id']
 
-/** Choropleth / region shading ramps (6 stops, low → high). Warm-neutral hub palette. */
+/**
+ * Choropleth / region shading ramps (6 stops, low → high). Terminal convention:
+ * low values sit deep/dim against the dark desk, high values glow — values read
+ * as heat. Each ramp stays legible in the light variant (low = high contrast on
+ * the cream surface).
+ */
 export const GRADIENT_PRESETS = [
   {
     id: 'terracotta',
     label: 'Terracotta',
-    /** Low stop: warm cream (not white) so light map chrome stays easy on the eyes. */
-    colors: ['#f1e4d7', '#e7c4a4', '#d79a6e', '#c2703f', '#a04a22', '#6f3216'],
+    colors: ['#2c2016', '#6a3f23', '#9d5a30', '#c8783f', '#e0a35d', '#f4d196'],
   },
   {
     id: 'green',
-    label: 'Green',
-    colors: ['#e4ece2', '#bdd6c4', '#8cbb9d', '#579577', '#386b54', '#214234'],
+    label: 'Sage',
+    colors: ['#16241c', '#244e3a', '#356b4e', '#4f9472', '#74b394', '#a9d8bf'],
   },
   {
     id: 'gold',
-    label: 'Gold',
-    colors: ['#f3ead8', '#e6cf9f', '#d2ab63', '#b5853b', '#8a6330', '#5c4220'],
+    label: 'Amber',
+    colors: ['#241c12', '#5a4420', '#8a6a2c', '#b5903b', '#d6b455', '#f0dc9e'],
   },
   {
     id: 'slate',
     label: 'Slate',
-    colors: ['#ece7dc', '#d6cdbb', '#b6aa92', '#90876f', '#665e50', '#3d382f'],
+    colors: ['#1c1f1b', '#3a3f37', '#5a6056', '#828a7c', '#aab1a2', '#d4dace'],
   },
   {
     id: 'oxblood',
     label: 'Oxblood',
-    colors: ['#f0e2da', '#dcae9a', '#c47a5f', '#a64a30', '#7e2c1a', '#4d180e'],
+    colors: ['#2a1410', '#5c241a', '#8a3422', '#b85433', '#dd7e4f', '#f0b487'],
   },
 ] as const
 
@@ -131,9 +140,18 @@ export function getAccentPreset(presetId: string) {
 /** Bold UI accent vs soft grey-tinted accent (better on dark backgrounds). */
 export type AccentTone = 'main' | 'soft'
 
-export function getAccentUiPalette(presetId: string, tone: AccentTone): { main: string; dark: string; light: string } {
+export function getAccentUiPalette(
+  presetId: string,
+  tone: AccentTone,
+  isDark = false,
+): { main: string; dark: string; light: string } {
   const p = getAccentPreset(presetId)
   if (tone === 'main') {
+    // On the dark terminal base, the standard `main` shades read too low; use
+    // the per-preset `darkMain` so the accent stays legible against #0f1311.
+    if (isDark) {
+      return { main: p.darkMain, dark: p.main, light: p.light }
+    }
     return { main: p.main, dark: p.dark, light: p.light }
   }
   return {

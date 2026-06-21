@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Link, Typography } from '@mui/material'
 import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
 import {
   Bar,
@@ -30,12 +30,17 @@ interface TimeSeriesChartProps {
   citationUrl?: string
   yearRange: [number, number]
   selectedSeries: string[]
+  /** Drives chart chrome + series palette so plots read in both registers. */
+  isDark?: boolean
 }
 
-// Categorical series palette — saturated is allowed here because color encodes
-// data (per the warm-neutral hub rules). Warm-leaning, mutually distinguishable.
-const SERIES_COLORS = ['#b45830', '#3b665a', '#8f6b3d', '#9a341f', '#4a6d8c', '#7d5a7a', '#6a9286', '#c2703f', '#5b7a3a', '#a8852f']
+// Categorical series palettes — color encodes data, so saturation is allowed.
+// Two sets so lines stay distinguishable on either the dark desk or light paper.
+const SERIES_COLORS_DARK = ['#e07d54', '#74b394', '#d6a14a', '#e07a5f', '#6ea3c2', '#c89ec0', '#9ac28f', '#eb9a78', '#b6c46a', '#d6b455']
+const SERIES_COLORS_LIGHT = ['#b45830', '#3b665a', '#8f6b3d', '#9a341f', '#4a6d8c', '#7d5a7a', '#6a9286', '#c2703f', '#5b7a3a', '#a8852f']
 const PIE_MAX_CATEGORIES = 8
+
+const MONO = 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace'
 
 type PlotMode = 'line' | 'bar' | 'pie'
 
@@ -56,12 +61,33 @@ export default function TimeSeriesChart({
   citationUrl,
   yearRange,
   selectedSeries,
+  isDark = true,
 }: TimeSeriesChartProps) {
   const sourceLabel = primarySource === 'ldflk'
-    ? 'Lanka Data Foundation (LDFLK)'
+    ? 'LDFLK'
     : primarySource === 'nuuuwan'
-      ? 'Lanka Data Search (LDS)'
+      ? 'LDS'
       : 'N/A'
+
+  const chrome = isDark
+    ? { grid: '#2a322b', tick: '#abb1a2', tooltipBg: '#161b18', tooltipBorder: '#3a423a', text: '#ece6db' }
+    : { grid: '#e2dacb', tick: '#5e574b', tooltipBg: '#fdfbf6', tooltipBorder: '#cfc5b2', text: '#22201c' }
+  const series = isDark ? SERIES_COLORS_DARK : SERIES_COLORS_LIGHT
+
+  const tooltipProps = {
+    contentStyle: {
+      backgroundColor: chrome.tooltipBg,
+      borderRadius: '7px',
+      border: `1px solid ${chrome.tooltipBorder}`,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+      color: chrome.text,
+      fontFamily: MONO,
+      fontSize: 12,
+    },
+    itemStyle: { fontWeight: 600, color: chrome.text },
+    labelStyle: { color: chrome.tick, fontWeight: 600 },
+    cursor: { fill: 'rgba(127,127,127,0.08)', stroke: chrome.grid },
+  } as const
 
   const sortedYears = useMemo(() => [...years].sort((a, b) => a - b), [years])
 
@@ -113,20 +139,18 @@ export default function TimeSeriesChart({
 
   if (names.length === 0) {
     return (
-      <Box className="h-full p-6 pt-4">
-        <Box className="h-full rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-8 shadow-[var(--shadow-md)] flex items-center justify-center text-center">
-          <Box>
-            <Typography variant="h6" className="font-semibold">No series available yet</Typography>
-            <Typography variant="body2" className="opacity-70 mt-1">
-              Try another dataset or year range.
-            </Typography>
-          </Box>
+      <Box className="flex h-full items-center justify-center p-6">
+        <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-6 py-5 text-center">
+          <span className="term-label">No series</span>
+          <Typography variant="body2" className="mt-1.5 text-[var(--ink-2)]">
+            This dataset has no time series. Try another dataset or year range.
+          </Typography>
         </Box>
       </Box>
     )
   }
 
-  const modeLabel = plotMode === 'line' ? 'Time Series' : plotMode === 'bar' ? 'Bar Chart' : 'Pie Chart'
+  const modeLabel = plotMode === 'line' ? 'TIME SERIES' : plotMode === 'bar' ? 'BAR' : 'SHARE'
   const yLabel = isDisplayableUnit(unit) ? unit!.trim() : 'Value'
   const unitCaption = isDisplayableUnit(unit) ? unit!.trim() : '—'
 
@@ -141,48 +165,48 @@ export default function TimeSeriesChart({
     return formatMetricValue(Number(v), unit)
   }
 
+  const axisTick = { fontSize: 11, fill: chrome.tick, fontFamily: MONO }
   const lineEmpty = plotMode === 'line' && effectiveNames.length === 0
 
   return (
-    <Box className="h-full p-6 pt-4">
-      <Box className="mx-auto h-full max-w-[1200px] rounded-lg border border-[var(--outline)] bg-[var(--surface)]/86 p-6 shadow-[var(--shadow-md)] flex flex-col">
-        <Box className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <Box>
-            <Typography variant="h6" className="font-semibold">
-              Data Plot Explorer
-              <Typography component="span" variant="caption" className="ml-2 opacity-50 font-normal">
-                ({modeLabel})
-              </Typography>
+    <Box className="h-full p-4 sm:p-5">
+      <Box className="mx-auto flex h-full max-w-[1200px] flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
+        <Box className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <Box className="min-w-0">
+            <Box className="flex items-center gap-2">
+              <span className="term-label">Plots</span>
+              <span className="mono text-[10px] tracking-[0.08em] text-[var(--accent)]">{modeLabel}</span>
+            </Box>
+            <Typography variant="body2" className="mt-1.5 truncate text-[13.5px] font-semibold text-[var(--ink)]" title={datasetName}>
+              {datasetName}
             </Typography>
-            <Typography variant="caption" className="opacity-70 block">
-              Dataset: {datasetName}
-            </Typography>
-            <Typography variant="caption" className="opacity-70 block">
-              Source: {sourceLabel} · Department: {secondarySource || 'N/A'} · Unit: {unitCaption}
-            </Typography>
+            <span className="mono mt-1 block text-[10.5px] text-[var(--ink-3)]">
+              {sourceLabel} · {secondarySource || 'N/A'} · {unitCaption}
+            </span>
             {citation && (
-              <Typography variant="caption" className="opacity-60 block">
-                🎓 Cite as{' '}
-                <a
+              <Typography variant="caption" className="mt-1 block text-[11px] text-[var(--ink-3)]">
+                Cite as{' '}
+                <Link
                   href={citationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:opacity-100 font-semibold"
+                  underline="hover"
+                  sx={{ color: 'var(--accent)', fontWeight: 600 }}
                 >
                   {citation}
-                </a>
+                </Link>
               </Typography>
             )}
           </Box>
         </Box>
 
-        <Box className="flex-1 min-h-0">
+        <Box className="min-h-0 flex-1">
           {lineEmpty && (
-            <Box className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--outline)] bg-[var(--surface)]/40 px-6 text-center">
+            <Box className="flex h-full min-h-[320px] items-center justify-center rounded-md border border-dashed border-[var(--border-2)] bg-[var(--surface-2)] px-6 text-center">
               <Box>
-                <Typography variant="subtitle1" className="font-semibold">No series selected</Typography>
-                <Typography variant="body2" className="opacity-70 mt-1">
-                  Use the sidebar to turn on &quot;All series&quot; or pick series in the list.
+                <span className="term-label">No series selected</span>
+                <Typography variant="body2" className="mt-1.5 text-[var(--ink-2)]">
+                  Turn on “All series” in the sidebar, or pick series from the list.
                 </Typography>
               </Box>
             </Box>
@@ -191,27 +215,18 @@ export default function TimeSeriesChart({
           {plotMode === 'line' && !lineEmpty && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={lineChartData} margin={{ left: 6, right: 8, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 32, 28, 0.10)" />
-                <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} label={{ value: yLabel, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10 } }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fdfbf6',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd4c4',
-                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
-                  }}
-                  itemStyle={{ fontWeight: 600 }}
-                  formatter={(v, name) => [formatTooltipNumber(v), String(name)]}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="2 4" stroke={chrome.grid} />
+                <XAxis dataKey="year" tick={axisTick} stroke={chrome.grid} />
+                <YAxis tick={axisTick} stroke={chrome.grid} label={{ value: yLabel, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10, fill: chrome.tick } }} />
+                <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
+                <Legend wrapperStyle={{ fontSize: 11, color: chrome.tick }} />
                 {effectiveNames.map((name, index) => (
                   <Line
                     key={name}
                     dataKey={name}
                     type="monotone"
-                    stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
-                    strokeWidth={2.25}
+                    stroke={series[index % series.length]}
+                    strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 4 }}
                   />
@@ -227,27 +242,13 @@ export default function TimeSeriesChart({
                 layout="vertical"
                 margin={{ left: 120, right: 20, top: 8, bottom: 8 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(34, 32, 28, 0.08)" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  tick={{ fontSize: 11 }}
-                  width={110}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fdfbf6',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd4c4',
-                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
-                  }}
-                  itemStyle={{ fontWeight: 600 }}
-                  formatter={(v, name) => [formatTooltipNumber(v), String(name)]}
-                />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                <CartesianGrid strokeDasharray="2 4" stroke={chrome.grid} />
+                <XAxis type="number" tick={axisTick} stroke={chrome.grid} />
+                <YAxis dataKey="name" type="category" tick={axisTick} stroke={chrome.grid} width={110} />
+                <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                   {categoricalData.slice(0, 30).map((_, index) => (
-                    <Cell key={index} fill={SERIES_COLORS[index % SERIES_COLORS.length]} />
+                    <Cell key={index} fill={series[index % series.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -264,26 +265,19 @@ export default function TimeSeriesChart({
                   cx="50%"
                   cy="50%"
                   outerRadius="70%"
-                  innerRadius="35%"
+                  innerRadius="38%"
                   paddingAngle={2}
+                  stroke={chrome.tooltipBg}
+                  strokeWidth={2}
                   label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} (${((props.percent ?? 0) * 100).toFixed(1)}%)`}
-                  labelLine={{ strokeWidth: 1 }}
+                  labelLine={{ strokeWidth: 1, stroke: chrome.grid }}
                 >
                   {categoricalData.map((_, index) => (
-                    <Cell key={index} fill={SERIES_COLORS[index % SERIES_COLORS.length]} />
+                    <Cell key={index} fill={series[index % series.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fdfbf6',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd4c4',
-                    boxShadow: '0 8px 20px rgba(34, 32, 28, 0.08)',
-                  }}
-                  itemStyle={{ fontWeight: 600 }}
-                  formatter={(v, name) => [formatTooltipNumber(v), String(name)]}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
+                <Legend wrapperStyle={{ fontSize: 11, color: chrome.tick }} />
               </PieChart>
             </ResponsiveContainer>
           )}

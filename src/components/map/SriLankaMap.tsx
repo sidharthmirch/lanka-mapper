@@ -258,6 +258,15 @@ export default function SriLankaMap({
 }: SriLankaMapProps) {
   const accentColor = accentColorProp ?? getAccentPreset(DEFAULT_ACCENT_ID).main
   /**
+   * Region-shading ramp is authored dim→luminous for the dark desk. In the
+   * light register it's reversed (high = dark) so high values stay high-contrast
+   * on cream. Normalization (min/max) is unaffected — only the color lookup flips.
+   */
+  const rampScale = useMemo(
+    () => (isDarkMode ? colorScale : { ...colorScale, colors: [...colorScale.colors].reverse() }),
+    [colorScale, isDarkMode],
+  )
+  /**
    * Tooltip formatter — matches the integer-during-play / exact-on-settle policy
    * used by MapColorLegend and RankingsChart. Reference is stable inside the
    * event handler closure via the prop read on each render; handlers are rebuilt
@@ -419,9 +428,9 @@ export default function SriLankaMap({
   }, [colorScale, districtDataMap, districtGeojson, showCentroids])
 
   const districtPolygonStyle = useMemo(() => {
-    const noDataFill = isDarkMode ? '#2c2820' : '#ece5d8'
-    const noDataStroke = isDarkMode ? '#4a4337' : '#cfc5b2'
-    const sepStroke = isDarkMode ? '#26221b' : '#fdfbf6'
+    const noDataFill = isDarkMode ? '#1b211d' : '#ece5d8'
+    const noDataStroke = isDarkMode ? '#3a423a' : '#cfc5b2'
+    const sepStroke = isDarkMode ? '#0f1311' : '#fdfbf6'
     return (feature: DistrictFeature | undefined): PathOptions => {
       if (!feature) {
         return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
@@ -442,18 +451,18 @@ export default function SriLankaMap({
       }
 
       return {
-        fillColor: value > 0 ? getColorForValue(value, colorScale) : noDataFill,
+        fillColor: value > 0 ? getColorForValue(value, rampScale) : noDataFill,
         fillOpacity: isSelected ? 0.92 : 0.82,
         color: isSelected ? accentColor : sepStroke,
         weight: isSelected ? 2.5 : 1,
       }
     }
-  }, [accentColor, colorScale, districtDataMap, isDarkMode, selectedDistrict, showChoropleth])
+  }, [accentColor, rampScale, districtDataMap, isDarkMode, selectedDistrict, showChoropleth])
 
   const provincePolygonStyle = useMemo(() => {
-    const noDataFill = isDarkMode ? '#2c2820' : '#ece5d8'
-    const noDataStroke = isDarkMode ? '#4a4337' : '#cfc5b2'
-    const sepStroke = isDarkMode ? '#26221b' : '#fdfbf6'
+    const noDataFill = isDarkMode ? '#1b211d' : '#ece5d8'
+    const noDataStroke = isDarkMode ? '#3a423a' : '#cfc5b2'
+    const sepStroke = isDarkMode ? '#0f1311' : '#fdfbf6'
     return (feature: ProvinceFeature | undefined): PathOptions => {
       if (!feature) {
         return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
@@ -474,13 +483,13 @@ export default function SriLankaMap({
       }
 
       return {
-        fillColor: value > 0 ? getColorForValue(value, colorScale) : noDataFill,
+        fillColor: value > 0 ? getColorForValue(value, rampScale) : noDataFill,
         fillOpacity: isSelected ? 0.92 : 0.82,
         color: isSelected ? accentColor : sepStroke,
         weight: isSelected ? 2.5 : 1,
       }
     }
-  }, [accentColor, colorScale, provinceDataMap, isDarkMode, selectedProvince, showChoropleth])
+  }, [accentColor, rampScale, provinceDataMap, isDarkMode, selectedProvince, showChoropleth])
 
   const clearTooltip = () => {
     centroidHoverRef.current = null
@@ -720,7 +729,7 @@ export default function SriLankaMap({
               pathOptions={{
                 color: isSelected ? accentColor : '#fdfbf6',
                 weight: isSelected ? 3 : 1.5,
-                fillColor: getColorForValue(value, colorScale),
+                fillColor: getColorForValue(value, rampScale),
                 fillOpacity: 0.85,
               }}
               eventHandlers={{
@@ -790,25 +799,25 @@ export default function SriLankaMap({
           }}
         >
           {hoverTooltip.centroid && (
-            <div className="mb-1 text-[9px] font-semibold text-[var(--primary)]">
+            <div className="term-label mb-1" style={{ color: 'var(--accent)' }}>
               Centroid
             </div>
           )}
-          <div className="text-[10px] font-medium text-[var(--ink-2)]">Province</div>
-          <div className="text-xs font-semibold break-words line-clamp-2">{hoverTooltip.provinceName}</div>
+          <div className="term-label">Province</div>
+          <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.provinceName}</div>
           {showDistrictInTooltip(datasetLevel, showCentroids, hoverTooltip) && hoverTooltip.districtName && (
             <>
-              <div className="mt-1 text-[10px] font-medium text-[var(--ink-2)]">District</div>
-              <div className="text-sm font-semibold break-words line-clamp-2">{hoverTooltip.districtName}</div>
+              <div className="term-label mt-1.5">District</div>
+              <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.districtName}</div>
             </>
           )}
           {hoverTooltip.formattedValue ? (
             <>
-              <div className="mt-1 text-[10px] font-medium text-[var(--ink-2)]">Value</div>
-              <div className="break-words text-base font-bold text-[var(--primary)]">{hoverTooltip.formattedValue}</div>
+              <div className="term-label mt-1.5">Value</div>
+              <div className="mono mt-0.5 break-words text-[15px] font-bold text-[var(--accent)]">{hoverTooltip.formattedValue}</div>
             </>
           ) : (
-            <div className="text-xs italic text-[var(--ink-3)]">No data available</div>
+            <div className="mt-1 text-[12px] italic text-[var(--ink-3)]">No data available</div>
           )}
         </div>
       )}

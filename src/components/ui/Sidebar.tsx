@@ -111,7 +111,8 @@ function AnimatedMetricText({
   const animated = useAnimatedScalar(value, playbackActive, durationMs, {
     roundWhileActive: true,
   })
-  return <>{formatMetricValue(animated, unit)}</>
+  // Every figure on the desk renders mono + tabular so columns of numbers align.
+  return <span className="mono">{formatMetricValue(animated, unit)}</span>
 }
 
 const MAX_SIDEBAR_DATASET_OPTIONS = 180
@@ -351,25 +352,26 @@ export default function Sidebar({
         </Box>
       ) : (
         <>
-          <Box className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 pb-4 pt-5">
+          <Box className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 pb-3.5 pt-4">
             <Box className="min-w-0 flex-1">
-              <Typography variant="h6" className="font-serif-identity text-balance font-semibold">
-                Data Explorer
-              </Typography>
-              <Typography variant="caption" className="mt-1 block text-[11px] opacity-68">
-                {totalDatasets.toLocaleString()} datasets · Last synced {lastCatalogSyncLabel}
-              </Typography>
+              <Box className="flex items-center gap-2">
+                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-[var(--accent)]" />
+                <Typography variant="h6" className="font-serif-identity text-balance text-[15px] font-semibold">
+                  Inspector
+                </Typography>
+              </Box>
+              <span className="mono mt-1.5 block text-[10px] tracking-[0.04em] text-[var(--ink-3)]">
+                {totalDatasets.toLocaleString()} SETS · SYNC {lastCatalogSyncLabel}
+              </span>
             </Box>
-            <IconButton onClick={onClose} size="small" className="shrink-0 border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]">
+            <IconButton onClick={onClose} size="small" aria-label="Collapse sidebar" className="shrink-0 border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]">
               <ChevronLeftIcon />
             </IconButton>
           </Box>
 
           <Box className="flex-1 space-y-5 overflow-y-auto p-5">
-            <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3.5">
-              <Typography variant="caption" className="text-[10px] font-semibold opacity-72">
-                Source Breakdown
-              </Typography>
+            <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3.5">
+              <span className="term-label">Source Breakdown</span>
               <Box className="mt-2 flex items-center justify-between gap-3">
                 <Box className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
                   <Chip
@@ -599,10 +601,9 @@ export default function Sidebar({
               </Box>
 
               {currentTab === 'map' && (
-                <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/60 p-3">
-                  <Typography variant="caption" className="mb-2 block text-[10px] font-semibold opacity-72">
-                    Map Rendering
-                  </Typography>
+                <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                  <span className="term-label">Map Rendering</span>
+                  <Box className="h-2" />
                   <Box className="mt-2 flex items-center justify-between rounded-lg bg-[var(--surface)]/60 px-2 py-1">
                     <Box className="flex items-center gap-1">
                       <Typography variant="caption" className="font-semibold opacity-80">
@@ -660,9 +661,7 @@ export default function Sidebar({
 
                   {availableMetrics.length > 1 && (
                     <Box className="mt-3">
-                      <Typography variant="caption" className="mb-1.5 block text-[10px] font-semibold opacity-72">
-                        Metric Layers
-                      </Typography>
+                      <span className="term-label mb-1.5 block">Metric Layers</span>
                       <Box className="flex flex-wrap gap-1.5">
                         {availableMetrics.map((metric) => (
                           <Chip
@@ -714,12 +713,12 @@ export default function Sidebar({
             ) : stats ? (
               <Box className="space-y-4">
                 {maxItem && (
-                  <Card className="cursor-default rounded-lg border border-[var(--border)] bg-[var(--surface-2)] shadow-none transition-all duration-300 hover:translate-y-[-1px] hover:bg-[var(--surface-2)]">
+                  <Card className="cursor-default rounded-md border border-[var(--border)] bg-[var(--surface-2)] shadow-none transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
                     <CardContent className="p-4">
-                      <Typography variant="caption" className="mb-2 block text-[10px] font-semibold text-primary">
-                        {currentDatasetLevel === 'province' ? 'Province with highest value' : currentDatasetLevel === 'district' ? 'District with highest value' : 'Top Entry'}
-                      </Typography>
-                      <Box className="flex items-center justify-between gap-2">
+                      <span className="term-label" style={{ color: 'var(--accent)' }}>
+                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
+                      </span>
+                      <Box className="mt-2 flex items-center justify-between gap-2">
                         <Typography variant="body1" className="font-bold">
                           {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
                         </Typography>
@@ -734,7 +733,7 @@ export default function Sidebar({
                           )}
                           size="small"
                           className="bg-[var(--surface)] text-primary font-bold"
-                          sx={{ borderRadius: '8px' }}
+                          sx={{ borderRadius: '6px' }}
                         />
                       </Box>
                     </CardContent>
@@ -742,12 +741,10 @@ export default function Sidebar({
                 )}
 
                 <Box className="grid grid-cols-2 gap-3">
-                  <Card className="cursor-default rounded-lg border border-[var(--border)] shadow-none bg-[var(--surface)]/74 transition-all duration-300 hover:translate-y-[-1px] hover:bg-[var(--surface)]/88">
+                  <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
                     <CardContent className="p-4">
-                      <Typography variant="caption" className="mb-1 block text-[10px] font-semibold opacity-72">
-                        Maximum
-                      </Typography>
-                      <Typography variant="h6" className="font-bold">
+                      <span className="term-label">Maximum</span>
+                      <Typography variant="h6" className="mt-1 font-bold">
                         <AnimatedMetricText
                           value={stats.max}
                           unit={currentDatasetUnit}
@@ -757,12 +754,10 @@ export default function Sidebar({
                       </Typography>
                     </CardContent>
                   </Card>
-                  <Card className="cursor-default rounded-lg border border-[var(--border)] shadow-none bg-[var(--surface)]/74 transition-all duration-300 hover:translate-y-[-1px] hover:bg-[var(--surface)]/88">
+                  <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
                     <CardContent className="p-4">
-                      <Typography variant="caption" className="mb-1 block text-[10px] font-semibold opacity-72">
-                        Average
-                      </Typography>
-                      <Typography variant="h6" className="font-bold">
+                      <span className="term-label">Average</span>
+                      <Typography variant="h6" className="mt-1 font-bold">
                         <AnimatedMetricText
                           value={stats.avg}
                           unit={currentDatasetUnit}
@@ -774,12 +769,10 @@ export default function Sidebar({
                   </Card>
                 </Box>
 
-                <Card className="cursor-default rounded-lg border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:bg-[var(--surface-2)]">
+                <Card className="cursor-default rounded-md border border-[var(--border-2)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--accent)]">
                   <CardContent className="p-4">
-                    <Typography variant="caption" className="mb-1 block text-[10px] font-semibold opacity-72">
-                      {totalAggregateLabel}
-                    </Typography>
-                    <Typography variant="h4" className="font-bold text-primary">
+                    <span className="term-label">{totalAggregateLabel}</span>
+                    <Typography variant="h4" className="mt-1 font-bold text-primary">
                       <AnimatedMetricText
                         value={stats.total}
                         unit={currentDatasetUnit}
@@ -791,7 +784,7 @@ export default function Sidebar({
                 </Card>
 
                 <Box className="flex items-center justify-between pt-2 text-[11px] font-semibold opacity-65">
-                  <span>{stats.count} entries</span>
+                  <span><span className="mono">{stats.count}</span> entries</span>
                   <span>
                     Range:{' '}
                     <AnimatedMetricText
@@ -821,13 +814,12 @@ export default function Sidebar({
             {selectedDistrict && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <Divider className="border-[var(--border)] mb-4" />
-                <Card className="relative overflow-hidden rounded-lg border border-[var(--accent)] shadow-[var(--shadow-sm)]">
-                  <Box className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary" />
-                  <CardContent className="p-4 pl-5">
-                    <Typography variant="caption" className="mb-1 block text-[10px] font-semibold text-primary">
+                <Card className="rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] shadow-none">
+                  <CardContent className="p-4">
+                    <span className="term-label" style={{ color: 'var(--accent)' }}>
                       Selected District
-                    </Typography>
-                    <Typography variant="h6" className="font-bold">
+                    </span>
+                    <Typography variant="h6" className="mt-1.5 font-bold">
                       {selectedDistrict}
                     </Typography>
                     {data && (

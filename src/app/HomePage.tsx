@@ -15,6 +15,7 @@ import {
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import Sidebar from '@/components/ui/Sidebar'
+import TerminalStatusBar from '@/components/ui/TerminalStatusBar'
 import { useAppStore } from '@/store'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
 import TabBar from '@/components/tabs/TabBar'
@@ -276,20 +277,22 @@ export default function HomePage() {
   }, [currentTab, datasetManifest, loadDataset, selectedMetric, setPlaybackLinearYearSync])
 
   const theme = useMemo(() => {
-    const accent = getAccentUiPalette(accentPresetId, accentTone)
+    const accent = getAccentUiPalette(accentPresetId, accentTone, isDarkMode)
     return createTheme({
       palette: {
         mode: isDarkMode ? 'dark' : 'light',
         primary: { main: accent.main, dark: accent.dark, light: accent.light },
-        secondary: { main: isDarkMode ? '#6a9286' : '#3b665a' },
+        secondary: { main: isDarkMode ? '#74b394' : '#3b665a' },
         background: isDarkMode
-          ? { default: '#1a1713', paper: '#232019' }
+          ? { default: '#0f1311', paper: '#161b18' }
           : { default: '#f4f0e8', paper: '#fdfbf6' },
         text: isDarkMode
-          ? { primary: '#ece5d8', secondary: '#b3a995' }
-          : { primary: '#22201c', secondary: '#645d50' },
-        divider: isDarkMode ? '#3a352b' : '#ddd4c4',
-        error: { main: isDarkMode ? '#d98368' : '#9a341f' },
+          ? { primary: '#ece6db', secondary: '#abb1a2' }
+          : { primary: '#22201c', secondary: '#5e574b' },
+        divider: isDarkMode ? '#2a322b' : '#ddd4c4',
+        error: { main: isDarkMode ? '#e07a5f' : '#9a341f' },
+        success: { main: isDarkMode ? '#74b394' : '#2f6b54' },
+        warning: { main: isDarkMode ? '#d6a14a' : '#8a6320' },
       },
       shape: { borderRadius: 8 },
       typography: {
@@ -331,15 +334,19 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    const accent = getAccentUiPalette(accentPresetId, accentTone)
+    const accent = getAccentUiPalette(accentPresetId, accentTone, isDarkMode)
     document.documentElement.style.setProperty('--primary', accent.main)
     document.documentElement.style.setProperty('--primary-dark', accent.dark)
     document.documentElement.style.setProperty('--primary-light', accent.light)
-  }, [accentPresetId, accentTone])
+  }, [accentPresetId, accentTone, isDarkMode])
 
   useEffect(() => {
-    applyRegionShadingGradientCssVars(getGradientColors(gradientPresetId))
-  }, [gradientPresetId])
+    // The ramp is authored dim→luminous (high values glow on the dark desk). In
+    // the light register that would leave high values pale on cream, so reverse
+    // it there: high stays high-contrast (dark) in both modes, low recedes.
+    const colors = getGradientColors(gradientPresetId)
+    applyRegionShadingGradientCssVars(isDarkMode ? colors : [...colors].reverse())
+  }, [gradientPresetId, isDarkMode])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -519,6 +526,23 @@ export default function HomePage() {
         <Box className="app-shell relative h-[100dvh] w-screen overflow-hidden" role="main">
           <Box className="flex h-full w-full gap-3 px-3 pb-3 pt-3 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+              <TerminalStatusBar
+                link={error ? 'error' : loading || catalogLoading ? 'loading' : 'live'}
+                errorMessage={error}
+                datasetName={activeDataset?.name ?? null}
+                source={currentDatasetSource}
+                level={currentDatasetLevel}
+                unit={currentDatasetUnit}
+                currentYear={playbackLinearYear ?? currentYear}
+                years={years}
+                currentTab={currentTab}
+                catalogTotal={catalogCounts.total}
+                lastSyncLabel={formatSyncTime(lastCatalogSync)}
+                catalogLoading={catalogLoading}
+                onSync={() => void initializeCatalog(true)}
+                isDark={isDarkMode}
+                onToggleTheme={() => setThemeMode(isDarkMode ? 'light' : 'dark')}
+              />
               <TabBar
                 currentTab={currentTab}
                 onTabChange={setCurrentTab}
@@ -557,15 +581,15 @@ export default function HomePage() {
                     isDarkMode={isDarkMode}
                     unit={currentDatasetUnit}
                     sidebarOpen={sidebarOpen}
-                    accentColor={getAccentUiPalette(accentPresetId, accentTone).main}
+                    accentColor={getAccentUiPalette(accentPresetId, accentTone, isDarkMode).main}
                     mapPlaybackActive={mapPlaybackActive}
                   />
 
                   {data && data.length === 0 && (
-                    <Box className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--outline)] bg-[var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow-md)]">
-                      <Typography className="font-semibold">No geographic layer in this dataset</Typography>
-                      <Typography variant="body2" className="opacity-75 mt-1">
-                        Use the Time Series or Table tabs for this source.
+                    <Box className="absolute top-1/2 left-1/2 z-[860] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow-lg)] backdrop-blur-md">
+                      <span className="term-label">No geographic layer</span>
+                      <Typography variant="body2" className="mt-1.5 text-[var(--ink-2)]">
+                        This dataset isn’t mapped. Use the Plots or Table tabs.
                       </Typography>
                     </Box>
                   )}
@@ -632,6 +656,7 @@ export default function HomePage() {
                   citationUrl={activeDataset?.citationUrl}
                   yearRange={plotYearRange ?? [years[0] ?? new Date().getFullYear(), years[years.length - 1] ?? new Date().getFullYear()]}
                   selectedSeries={plotSeriesSelection}
+                  isDark={isDarkMode}
                 />
               )}
 

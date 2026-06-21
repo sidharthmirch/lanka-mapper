@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import type { MapData } from '@/types'
@@ -19,6 +19,7 @@ interface RankingsChartProps {
 }
 
 function RankingRow({
+  rank,
   name,
   value,
   unit,
@@ -27,6 +28,7 @@ function RankingRow({
   durationMs,
   onSelect,
 }: {
+  rank: number
   name: string
   value: number
   unit: string | null
@@ -49,19 +51,25 @@ function RankingRow({
     <button
       type="button"
       onClick={() => onSelect(name)}
-      className="w-full rounded-md border border-[var(--outline)]/70 bg-[var(--surface)]/70 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-variant)]/70"
+      className="group w-full rounded-md border border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:border-[var(--accent)]"
     >
-      <div className="mb-1 flex items-center justify-between text-xs font-semibold opacity-85">
-        <span>{name}</span>
-        <span className="tabular-nums text-[var(--gradient-4)]">{formatMetricValue(animated, unit)}</span>
+      <div className="mb-1 flex items-center gap-2 text-[12px]">
+        <span className="mono shrink-0 text-[10px] tabular-nums text-[var(--ink-3)]">
+          {String(rank).padStart(2, '0')}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-semibold text-[var(--ink)]" title={name}>
+          {name}
+        </span>
+        <span className="mono shrink-0 tabular-nums text-[var(--accent)]">
+          {formatMetricValue(animated, unit)}
+        </span>
       </div>
-      <div className="h-2 rounded-full bg-[var(--surface-variant)]">
+      <div className="ml-[1.6rem] h-[5px] overflow-hidden rounded-sm bg-[var(--surface-3)]">
         <div
-          className="h-2 rounded-full"
+          className="h-full rounded-sm"
           style={{
             width: `${pct}%`,
-            background:
-              'linear-gradient(90deg, var(--gradient-0), var(--gradient-2) 55%, var(--gradient-5))',
+            background: 'linear-gradient(90deg, var(--gradient-2), var(--gradient-4) 60%, var(--gradient-5))',
           }}
         />
       </div>
@@ -139,7 +147,7 @@ export default function RankingsChart({
   return (
     <Box
       ref={rootRef}
-      className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--outline)] bg-[var(--surface)]/95 p-3 shadow-[var(--shadow-md)] sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
+      className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-2.5 shadow-[var(--shadow-lg)] backdrop-blur-md sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
       sx={{
         color: 'var(--on-surface)',
         fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
@@ -148,17 +156,26 @@ export default function RankingsChart({
     >
       <button
         type="button"
-        className="mb-2 flex w-full items-center justify-between rounded-md px-2 py-1 text-left hover:bg-[var(--surface-variant)]/55"
+        className="mb-1.5 flex w-full items-center justify-between rounded-md px-2 py-1 text-left hover:bg-[var(--surface-2)]"
         onClick={handleToggleCollapsed}
+        aria-expanded={!effectiveCollapsed}
       >
-        <Typography variant="subtitle2" className="font-semibold">Top Regions</Typography>
-        {effectiveCollapsed ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowUpIcon fontSize="small" />}
+        <span className="flex items-baseline gap-2">
+          <span className="term-label">Top Regions</span>
+          <span className="mono text-[10px] text-[var(--ink-3)]">{rows.length}</span>
+        </span>
+        {effectiveCollapsed ? (
+          <KeyboardArrowDownIcon fontSize="small" sx={{ color: 'var(--ink-3)' }} />
+        ) : (
+          <KeyboardArrowUpIcon fontSize="small" sx={{ color: 'var(--ink-3)' }} />
+        )}
       </button>
       {!effectiveCollapsed && (
-        <Box ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-          {rows.map((row) => (
+        <Box ref={listRef} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+          {rows.map((row, i) => (
             <RankingRow
               key={row.name}
+              rank={i + 1}
               name={row.name}
               value={row.value}
               unit={unit}

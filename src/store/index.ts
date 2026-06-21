@@ -240,7 +240,9 @@ export const useAppStore = create<AppState>()(
         currentTab: 'map',
         colorScale: DEFAULT_COLOR_SCALE,
         showTooltips: true,
-        themeMode: 'system',
+        // Dark-first: the terminal boots into the warm-dark register. A returning
+        // user who explicitly chose light keeps it (see migrate v8).
+        themeMode: 'dark',
         accentPresetId: DEFAULT_ACCENT_ID,
         accentTone: 'main',
         gradientPresetId: DEFAULT_GRADIENT_ID,
@@ -564,7 +566,7 @@ export const useAppStore = create<AppState>()(
       }),
       {
         name: 'sri-lanka-visualizer',
-        version: 7,
+        version: 8,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version === 0) {
@@ -595,6 +597,14 @@ export const useAppStore = create<AppState>()(
           if (version < 7) {
             // visualizationMode removed (heatmap never wired)
             delete state.visualizationMode
+          }
+          if (version < 8) {
+            // Terminal redesign defaults to the warm-dark register. Promote
+            // `system` (the old default) to explicit dark; honor a prior
+            // explicit light/dark choice.
+            if (state.themeMode == null || state.themeMode === 'system') {
+              state.themeMode = 'dark'
+            }
           }
           return state as unknown as AppState
         },

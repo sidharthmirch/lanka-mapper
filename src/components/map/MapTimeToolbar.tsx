@@ -1,19 +1,12 @@
 'use client'
 
 import { useMemo } from 'react'
-import {
-  Box,
-  IconButton,
-  Slider,
-  ToggleButton,
-  Tooltip,
-  Typography,
-} from '@mui/material'
+import { Box, IconButton, Slider, Tooltip } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
 import LoopIcon from '@mui/icons-material/Loop'
-import RemoveIcon from '@mui/icons-material/Remove'
-import AddIcon from '@mui/icons-material/Add'
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious'
+import SkipNextIcon from '@mui/icons-material/SkipNext'
 import {
   getTimelinePositionForYear,
   getTimelineYearFromPosition,
@@ -22,22 +15,6 @@ import {
 export type MapPlaybackSpeed = 0.5 | 1 | 1.5 | 2
 
 const SPEEDS: MapPlaybackSpeed[] = [0.5, 1, 1.5, 2]
-
-/** Play, loop, and speed step buttons share this footprint (px). */
-const CONTROL_SIZE_PX = 40
-
-function speedSlower(current: MapPlaybackSpeed): MapPlaybackSpeed {
-  const i = SPEEDS.indexOf(current)
-  if (i <= 0) return SPEEDS[0]
-  return SPEEDS[i - 1]
-}
-
-function speedFaster(current: MapPlaybackSpeed): MapPlaybackSpeed {
-  const i = SPEEDS.indexOf(current)
-  if (i < 0) return 1
-  if (i >= SPEEDS.length - 1) return SPEEDS[SPEEDS.length - 1]
-  return SPEEDS[i + 1]
-}
 
 interface MapTimeToolbarProps {
   currentYear: number
@@ -54,6 +31,21 @@ interface MapTimeToolbarProps {
   onLoopChange: (enabled: boolean) => void
   onYearChange: (year: number) => void
 }
+
+/** Square transport button — hairline terminal control. */
+const transportButtonSx = {
+  width: 34,
+  height: 34,
+  minWidth: 34,
+  padding: 0,
+  borderRadius: '6px',
+  border: '1px solid var(--border-2)',
+  backgroundColor: 'var(--surface-2)',
+  color: 'var(--ink)',
+  '&:hover': { backgroundColor: 'var(--surface-3)', borderColor: 'var(--ink-3)' },
+  '&:active': { transform: 'translateY(1px)' },
+  '&.Mui-disabled': { color: 'var(--ink-3)', opacity: 0.4, borderColor: 'var(--border)' },
+} as const
 
 export default function MapTimeToolbar({
   currentYear,
@@ -72,237 +64,110 @@ export default function MapTimeToolbar({
   const sortedYears = useMemo(() => [...years].sort((a, b) => a - b), [years])
   const scrubbing = playbackActive && playbackLinearYear != null
   const sliderMax = Math.max(0, sortedYears.length - 1)
-  const sliderValue = getTimelinePositionForYear(
-    sortedYears,
-    scrubbing ? playbackLinearYear : currentYear
-  )
-  const sliderPercent = sliderMax > 0 ? (sliderValue / sliderMax) * 100 : 0
-  /**
-   * Visible CURRENT YEAR label always reads as an integer - fractional years like
-   * "2021.3" flicker between digits every playback tick and read as jitter even
-   * when the underlying scrubber position is continuous. Slider thumb keeps the
-   * fractional `sliderValue` (smooth motion); only the text is rounded.
-   */
-  const headerYearText = String(Math.round(scrubbing ? playbackLinearYear : currentYear))
+  const liveYear = scrubbing ? (playbackLinearYear as number) : currentYear
+  const sliderValue = getTimelinePositionForYear(sortedYears, liveYear)
+  /** Integer display year — fractional playback time would flicker digits. */
+  const headerYearText = String(Math.round(liveYear))
+
+  const hasMultipleYears = sortedYears.length > 1
+  const currentIndex = useMemo(() => {
+    if (sortedYears.length === 0) return 0
+    // Nearest data year to the live (possibly fractional) position.
+    let best = 0
+    let bestD = Infinity
+    sortedYears.forEach((y, i) => {
+      const d = Math.abs(y - liveYear)
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    })
+    return best
+  }, [sortedYears, liveYear])
+
+  const atFirst = currentIndex <= 0
+  const atLast = currentIndex >= sortedYears.length - 1
+  const stepDisabled = loading || playbackActive
 
   const sliderMarks = useMemo(() => {
-    const labelledYears = new Set<number>()
-    if (sortedYears.length <= 8) {
-      sortedYears.forEach((year) => labelledYears.add(year))
+    const labelled = new Set<number>()
+    if (sortedYears.length <= 7) {
+      sortedYears.forEach((y) => labelled.add(y))
     } else if (sortedYears.length > 0) {
-      labelledYears.add(sortedYears[0])
-      labelledYears.add(sortedYears[sortedYears.length - 1])
-      const step = Math.max(1, Math.floor(sortedYears.length / 5))
-      for (let index = step; index < sortedYears.length - 1; index += step) {
-        labelledYears.add(sortedYears[index])
-      }
+      labelled.add(sortedYears[0])
+      labelled.add(sortedYears[sortedYears.length - 1])
+      const step = Math.max(1, Math.floor(sortedYears.length / 4))
+      for (let i = step; i < sortedYears.length - 1; i += step) labelled.add(sortedYears[i])
     }
-
     return sortedYears.map((year, index) => ({
       value: index,
-      label: labelledYears.has(year) ? `${year}` : undefined,
+      label: labelled.has(year) ? `${year}` : undefined,
     }))
   }, [sortedYears])
 
-  const hasMultipleYears = sortedYears.length > 1
-
-  const atSlowest = playbackSpeed === SPEEDS[0]
-  const atFastest = playbackSpeed === SPEEDS[SPEEDS.length - 1]
-
-  const panelSx = {
-    color: 'var(--on-surface)',
-    fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
-    fontVariantNumeric: 'tabular-nums',
-    '& .MuiTypography-root': {
-      fontFamily: 'inherit',
-    },
-  } as const
-
-  /** On-rail tick marks read as harsh white dots over the filled track; keep year labels only. */
-  const yearSliderSx = {
-    mb: 0,
-    mt: 0.5,
-    fontFamily: 'inherit',
+  /** Terminal scrubber rail: thin track, accent fill, square playhead, mono ticks below. */
+  const railSx = {
     py: 0,
-    /**
-     * Do not set horizontal padding on the Slider root: MUI maps pointer X using the root's
-     * full border-box width while thumb/track `left`/`width` percentages use the padding box.
-     * Inset the control via the parent `Box` instead so the rail, thumb, and hit-testing agree.
-     */
-    px: 0,
-    color: 'primary.main',
+    color: 'var(--accent)',
     overflow: 'visible',
-    /**
-     * MUI default `top: 30px` on mark labels aligns them with the rail so the track line cuts
-     * through the year text. Place labels fully below the rail + thumb.
-     */
-    '&.MuiSlider-marked': {
-      marginBottom: '30px',
-    },
-    '& .MuiSlider-mark': {
-      display: 'none',
-    },
-    '& .MuiSlider-markLabel': {
-      fontSize: 10.5,
-      fontFamily: 'inherit',
-      color: 'var(--on-surface-variant)',
-      whiteSpace: 'nowrap',
-      lineHeight: 1.35,
-      top: '46px',
-      marginBottom: 0,
-      paddingTop: 0,
-      transform: 'translateX(-50%)',
-      transformOrigin: 'top center',
-      '@media (pointer: coarse)': {
-        top: '52px',
-      },
-    },
-    /** First / last labelled years: keep label box inside the rail span (no overflow past ends). */
-    '& .MuiSlider-markLabel:first-of-type:not(:last-of-type)': {
-      transform: 'translateX(0)',
-    },
-    '& .MuiSlider-markLabel:last-of-type:not(:first-of-type)': {
-      transform: 'translateX(-100%)',
-    },
+    '&.MuiSlider-marked': { marginBottom: '24px' },
     '& .MuiSlider-rail': {
       opacity: 1,
-      height: 9,
-      borderRadius: 6,
-      backgroundColor: 'var(--surface-variant)',
-      border: '1px solid',
-      borderColor: 'var(--outline)',
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: 'var(--border-2)',
     },
     '& .MuiSlider-track': {
       border: 'none',
-      height: 9,
-      borderRadius: 6,
-      /* Matches active region-shading ramp (`--gradient-*` on :root). */
-      background:
-        'linear-gradient(90deg, var(--gradient-0) 0%, var(--gradient-2) 42%, var(--gradient-5) 100%)',
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: 'var(--accent)',
     },
     '& .MuiSlider-thumb': {
-      width: 18,
-      height: 18,
-      background: 'var(--surface)',
-      border: '2px solid var(--primary)',
-      boxShadow: 'var(--shadow-sm)',
+      width: 12,
+      height: 12,
+      borderRadius: '3px',
+      backgroundColor: 'var(--accent)',
+      border: '2px solid var(--surface)',
+      boxShadow: '0 0 0 1px var(--accent), 0 0 12px color-mix(in oklab, var(--accent) 50%, transparent)',
+      transition: 'box-shadow 160ms ease',
       '&:hover, &.Mui-focusVisible': {
-        boxShadow: 'var(--shadow-md)',
+        boxShadow: '0 0 0 1px var(--accent), 0 0 0 6px color-mix(in oklab, var(--accent) 22%, transparent)',
       },
-      '&.Mui-active': {
-        boxShadow: 'var(--shadow-sm)',
-      },
+      '&.Mui-active': { boxShadow: '0 0 0 1px var(--accent), 0 0 0 8px color-mix(in oklab, var(--accent) 26%, transparent)' },
     },
     '& .MuiSlider-thumb.Mui-disabled': {
-      background: 'var(--surface-variant)',
-      borderColor: 'var(--outline)',
-      boxShadow: 'none',
+      width: 12,
+      height: 12,
+      backgroundColor: 'var(--accent)',
+      border: '2px solid var(--surface)',
+      boxShadow: '0 0 0 1px var(--accent)',
     },
+    '& .MuiSlider-mark': { display: 'none' },
+    '& .MuiSlider-markLabel': {
+      fontFamily: 'var(--font-mono), ui-monospace, monospace',
+      fontSize: 9.5,
+      letterSpacing: '0.04em',
+      color: 'var(--ink-3)',
+      whiteSpace: 'nowrap',
+      top: '20px',
+      transform: 'translateX(-50%)',
+    },
+    '& .MuiSlider-markLabel[data-index="0"]': { transform: 'translateX(0)' },
+    [`& .MuiSlider-markLabel[data-index="${sliderMax}"]`]: { transform: 'translateX(-100%)' },
   } as const
 
-  /** Matches sidebar: outlined controls, surface-variant hover (see Sidebar close IconButton & section cards). */
-  const sidebarControlButtonSx = {
-    border: '1px solid',
-    borderColor: 'var(--outline)',
-    borderRadius: '8px',
-    backgroundColor: 'var(--surface)',
-    color: 'var(--primary)',
-    width: CONTROL_SIZE_PX,
-    height: CONTROL_SIZE_PX,
-    minWidth: CONTROL_SIZE_PX,
-    minHeight: CONTROL_SIZE_PX,
-    padding: 0,
-    boxSizing: 'border-box' as const,
-    flexShrink: 0,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    '&:hover': {
-      backgroundColor: 'var(--surface-variant)',
-      borderColor: 'var(--primary)',
-    },
-    '&:active': {
-      transform: 'translateY(1px) scale(0.98)',
-    },
-    '&:focus-visible': {
-      outline: '2px solid var(--primary)',
-      outlineOffset: '2px',
-    },
-    '&.Mui-disabled': {
-      borderColor: 'var(--outline)',
-      color: 'var(--on-surface-variant)',
-      opacity: 0.5,
-      backgroundColor: 'var(--surface-variant)',
-    },
-  } as const
-
-  const loopToggleSx = {
-    border: '1px solid',
-    borderColor: 'var(--outline)',
-    borderRadius: '8px',
-    textTransform: 'none' as const,
-    width: CONTROL_SIZE_PX,
-    height: CONTROL_SIZE_PX,
-    minWidth: CONTROL_SIZE_PX,
-    minHeight: CONTROL_SIZE_PX,
-    padding: 0,
-    boxSizing: 'border-box' as const,
-    flexShrink: 0,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--on-surface)',
-    backgroundColor: 'var(--surface)',
-    '&:hover': {
-      backgroundColor: 'var(--surface-variant)',
-    },
-    '&.Mui-selected': {
-      color: 'var(--primary)',
-      backgroundColor: 'var(--surface-variant)',
-      borderColor: 'var(--primary)',
-    },
-    '&.Mui-disabled': {
-      opacity: 0.45,
-      borderColor: 'var(--outline)',
-    },
-  } as const
-
-  const speedStepButtonSx = {
-    ...sidebarControlButtonSx,
-  } as const
-
-  /**
-   * Single-year datasets have no timeline to scrub, no playback to drive, and no
-   * speed/loop controls to show. Collapse the toolbar to a compact read-only
-   * card that just surfaces the current year and a short explanatory note.
-   */
+  // Single-year datasets: collapse to a compact readout — nothing to scrub.
   if (!hasMultipleYears) {
     return (
       <Box
-        className="rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/94 px-5 py-3 shadow-[var(--shadow-md)]"
-        sx={panelSx}
+        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-2.5 shadow-[var(--shadow-md)] backdrop-blur-sm"
+        style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
       >
         <Box className="flex items-center gap-3">
-          <Typography
-            variant="subtitle2"
-            className="font-semibold text-[10px] text-[var(--on-surface-variant)]"
-          >
-            Current year
-          </Typography>
-          <Typography
-            variant="subtitle2"
-            className="font-semibold tabular-nums"
-            sx={{ color: 'var(--gradient-4)' }}
-          >
-            {String(currentYear)}
-          </Typography>
-          <Typography
-            variant="caption"
-            className="ml-auto text-[11px] opacity-70"
-            sx={{ fontStyle: 'italic' }}
-          >
-            Single year in this dataset
-          </Typography>
+          <span className="term-label">YEAR</span>
+          <span className="tabular-nums text-[15px] font-semibold text-[var(--accent)]">{currentYear}</span>
+          <span className="ml-auto text-[10px] tracking-[0.06em] text-[var(--ink-3)]">SINGLE FRAME · NO TIMELINE</span>
         </Box>
       </Box>
     )
@@ -311,110 +176,157 @@ export default function MapTimeToolbar({
   return (
     <Box
       data-testid="map-time-toolbar"
-      className="w-full rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/94 px-4 py-3.5 shadow-[var(--shadow-md)] sm:px-5 sm:py-4 lg:px-6"
-      sx={panelSx}
+      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-3.5 py-3 shadow-[var(--shadow-lg)] backdrop-blur-md sm:px-4"
+      style={{ fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace' }}
     >
-      <Box className="mx-auto w-full max-w-[392px]">
-        <Box className="px-2 pb-3 pt-1 sm:px-5 lg:px-6">
-          <Box className="relative pt-7">
-            <Box
-              aria-hidden="true"
-              className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md border border-[var(--outline)] bg-[var(--surface)] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--primary)] shadow-[var(--shadow-sm)]"
-              sx={{
-                left: `${sliderPercent}%`,
-              }}
-            >
-              {headerYearText}
-              <Box
-                component="span"
-                className="absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-[var(--outline)]"
-              />
-            </Box>
-            <Slider
-              value={sliderValue}
-              min={0}
-              max={sliderMax}
-              marks={sliderMarks}
-              step={scrubbing ? 0.01 : 1}
-              disabled={loading || playbackActive}
-              size="small"
-              getAriaValueText={(value) => String(getTimelineYearFromPosition(sortedYears, value))}
-              onChange={(_, value) => {
-                if (typeof value === 'number' && !playbackActive) {
-                  onYearChange(getTimelineYearFromPosition(sortedYears, value))
-                }
-              }}
-              sx={yearSliderSx}
-            />
-          </Box>
+      {/* Control row */}
+      <Box className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+        {/* Year readout */}
+        <Box className="flex items-baseline gap-2">
+          <span className="tabular-nums text-[22px] font-semibold leading-none text-[var(--accent)]">
+            {headerYearText}
+          </span>
+          <span className="hidden text-[10px] tracking-[0.06em] text-[var(--ink-3)] sm:inline">
+            {sortedYears[0]}–{sortedYears[sortedYears.length - 1]}
+          </span>
         </Box>
 
-        <Box className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--outline)]/80 pt-3.5 max-[380px]:justify-center sm:mt-6 sm:pt-4">
-          <Box className="flex items-center gap-1.5">
-            <Tooltip title={playbackActive ? 'Pause' : 'Play'}>
-              <span>
-                <IconButton
-                  onClick={onTogglePlayback}
-                  disabled={!canPlayback || loading || !hasMultipleYears}
-                  aria-label={playbackActive ? 'Pause map time animation' : 'Play map time animation'}
-                  size="small"
-                  sx={sidebarControlButtonSx}
-                >
-                  {playbackActive ? <PauseIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title={loopEnabled ? 'Loop on' : 'Loop off'}>
-              <ToggleButton
-                value="loop"
+        {/* Transport */}
+        <Box className="flex items-center gap-1.5">
+          <Tooltip title="Previous year">
+            <span>
+              <IconButton
                 size="small"
-                selected={loopEnabled}
-                disabled={!hasMultipleYears || loading}
-                onClick={() => onLoopChange(!loopEnabled)}
-                aria-label={loopEnabled ? 'Disable looping' : 'Enable looping'}
-                sx={loopToggleSx}
+                aria-label="Previous year"
+                disabled={stepDisabled || atFirst}
+                onClick={() => onYearChange(sortedYears[Math.max(0, currentIndex - 1)])}
+                sx={transportButtonSx}
               >
-                <LoopIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
-          </Box>
+                <SkipPreviousIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
 
-          <Box className="flex h-10 items-center gap-1 px-0.5">
-            <Tooltip title="Slower">
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label="Slower playback"
-                  disabled={loading || atSlowest}
-                  onClick={() => onPlaybackSpeedChange(speedSlower(playbackSpeed))}
-                  sx={speedStepButtonSx}
-                >
-                  <RemoveIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Typography
-              variant="body2"
-              component="span"
-              className="min-w-[2.75rem] select-none text-center font-semibold tabular-nums text-[var(--on-surface)]"
-            >
-              {`${playbackSpeed}×`}
-            </Typography>
-            <Tooltip title="Faster">
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label="Faster playback"
-                  disabled={loading || atFastest}
-                  onClick={() => onPlaybackSpeedChange(speedFaster(playbackSpeed))}
-                  sx={speedStepButtonSx}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
+          <Tooltip title={playbackActive ? 'Pause' : 'Play'}>
+            <span>
+              <IconButton
+                onClick={onTogglePlayback}
+                disabled={!canPlayback || loading}
+                aria-label={playbackActive ? 'Pause map time animation' : 'Play map time animation'}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '7px',
+                  border: '1px solid var(--accent)',
+                  backgroundColor: playbackActive ? 'var(--accent)' : 'var(--accent-soft)',
+                  color: playbackActive ? 'var(--bg)' : 'var(--accent)',
+                  '&:hover': {
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--bg)',
+                  },
+                  '&:active': { transform: 'translateY(1px)' },
+                  '&.Mui-disabled': {
+                    color: 'var(--ink-3)',
+                    opacity: 0.4,
+                    borderColor: 'var(--border)',
+                    backgroundColor: 'var(--surface-2)',
+                  },
+                }}
+              >
+                {playbackActive ? <PauseIcon sx={{ fontSize: 22 }} /> : <PlayArrowIcon sx={{ fontSize: 22 }} />}
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Next year">
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Next year"
+                disabled={stepDisabled || atLast}
+                onClick={() => onYearChange(sortedYears[Math.min(sortedYears.length - 1, currentIndex + 1)])}
+                sx={transportButtonSx}
+              >
+                <SkipNextIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title={loopEnabled ? 'Loop on' : 'Loop off'}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label={loopEnabled ? 'Disable looping' : 'Enable looping'}
+                disabled={loading}
+                onClick={() => onLoopChange(!loopEnabled)}
+                sx={{
+                  ...transportButtonSx,
+                  color: loopEnabled ? 'var(--accent)' : 'var(--ink-2)',
+                  borderColor: loopEnabled ? 'var(--accent)' : 'var(--border-2)',
+                  backgroundColor: loopEnabled ? 'var(--accent-soft)' : 'var(--surface-2)',
+                }}
+              >
+                <LoopIcon sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
         </Box>
+
+        {/* Speed + frame counter, pushed right */}
+        <Box className="ml-auto flex items-center gap-2.5">
+          <Box
+            role="group"
+            aria-label="Playback speed"
+            className="flex items-center overflow-hidden rounded-md border border-[var(--border-2)]"
+          >
+            {SPEEDS.map((s, i) => {
+              const active = playbackSpeed === s
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`${s} times speed`}
+                  disabled={loading}
+                  onClick={() => onPlaybackSpeedChange(s)}
+                  className={`tabular-nums px-2 py-1 text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+                    i > 0 ? 'border-l border-[var(--border-2)]' : ''
+                  } ${
+                    active
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                      : 'bg-[var(--surface-2)] text-[var(--ink-3)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {s}×
+                </button>
+              )
+            })}
+          </Box>
+          <span className="hidden tabular-nums text-[10px] tracking-[0.06em] text-[var(--ink-3)] min-[440px]:inline">
+            {String(currentIndex + 1).padStart(2, '0')}/{String(sortedYears.length).padStart(2, '0')}
+          </span>
+        </Box>
+      </Box>
+
+      {/* Scrubber rail */}
+      <Box className="mt-2.5 px-1">
+        <Slider
+          value={sliderValue}
+          min={0}
+          max={sliderMax}
+          marks={sliderMarks}
+          step={scrubbing ? 0.01 : 1}
+          disabled={loading || playbackActive}
+          size="small"
+          aria-label="Timeline year scrubber"
+          getAriaValueText={(value) => String(getTimelineYearFromPosition(sortedYears, value))}
+          onChange={(_, value) => {
+            if (typeof value === 'number' && !playbackActive) {
+              onYearChange(getTimelineYearFromPosition(sortedYears, value))
+            }
+          }}
+          sx={railSx}
+        />
       </Box>
     </Box>
   )

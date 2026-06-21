@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import type { ColorScale } from '@/types'
 import { useFormatMetric } from '@/hooks/useFormatMetric'
 import { useAnimatedScalar } from '@/hooks/useAnimatedScalar'
@@ -37,21 +37,24 @@ export default function MapColorLegend({
 
   return (
     <Box
-      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
+      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 shadow-[var(--shadow-lg)] backdrop-blur-md min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
       sx={{
-        width: { xs: 'min(220px, calc(100vw - 24px))', lg: 240, xl: 272 },
+        width: { xs: 'min(220px, calc(100vw - 24px))', lg: 232, xl: 256 },
         px: 1.5,
         py: 1.25,
       }}
     >
-      <Typography variant="caption" className="mb-1.5 block text-[10px] font-semibold opacity-70">
-        Scale
-      </Typography>
-      <Box className="mb-2 h-2 w-full rounded-full" style={{ background: REGION_SHADING_GRADIENT_CSS }} />
-      <Box className="grid grid-cols-3 gap-x-2 text-[11px] font-semibold tabular-nums leading-snug text-[var(--on-surface)] opacity-90">
+      <Box className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="term-label">Scale</span>
+        {unit && unit.trim() && unit.trim() !== '—' ? (
+          <span className="mono max-w-[14ch] truncate text-[9px] text-[var(--ink-3)]">{unit.trim()}</span>
+        ) : null}
+      </Box>
+      <Box className="mb-2 h-2.5 w-full rounded-[3px] border border-[var(--border)]" style={{ background: REGION_SHADING_GRADIENT_CSS }} />
+      <Box className="mono grid grid-cols-3 gap-x-2 text-[11px] tabular-nums leading-snug text-[var(--ink)]">
         <span className="min-w-0 truncate text-left">{fmt(animMin, unit, 'compact')}</span>
-        <span className="min-w-0 truncate text-center">{fmt(mid, unit, 'compact')}</span>
-        <span className="min-w-0 truncate text-right">{fmt(animMax, unit, 'compact')}</span>
+        <span className="min-w-0 truncate text-center text-[var(--ink-2)]">{fmt(mid, unit, 'compact')}</span>
+        <span className="min-w-0 truncate text-right text-[var(--accent)]">{fmt(animMax, unit, 'compact')}</span>
       </Box>
     </Box>
   )

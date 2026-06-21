@@ -4,51 +4,117 @@
 @import 'leaflet/dist/leaflet.css';
 
 /*
- * Warm-neutral design system — shared visual language with the artifacts hub
- * (artifacts.mirch.me). Light only: a well-organized research desk, not a
- * beige wash. Layering comes from value contrast + hairline borders, not
- * heavy shadows. Saturated color is reserved for data encodings and state.
+ * LANKA terminal design system — warm-dark, data-first.
  *
- * Legacy token names (--background, --surface, --on-surface, --outline,
- * --primary…) are kept and remapped so existing components inherit the new
- * look without per-file churn. New semantic tokens (--ink-*, --accent*,
- * --gold, --alert, --radius*) sit alongside them.
+ * Dark is the default register: a Bloomberg-style data desk, sharing its base
+ * with the MHPP dashboards on artifacts.mirch.me (#0f1311 green-black, terracotta
+ * accent, sage / coral / amber semantics). A warm light variant ships under
+ * `body.light-mode` for parity with the artifacts hub.
+ *
+ * Hierarchy reads through value contrast + hairline rules, never heavy shadows.
+ * Saturated color is reserved for data encodings and live state. Every numeric
+ * readout is mono + tabular so columns of figures line up like a terminal.
+ *
+ * Legacy alias names (--background, --surface, --on-surface, --outline,
+ * --primary…) are remapped so existing components inherit the look without
+ * per-file churn. New semantic tokens sit alongside them.
  */
 :root {
-  /* Surfaces — page sits slightly below cards so layering reads without shadow */
+  /* Surfaces — page sits below panels; panels read by value step, not shadow */
+  --bg: #0f1311;
+  --surface: #161b18;
+  --surface-2: #1d231f;
+  --surface-3: #262d27;
+
+  /* Ink — warm off-white ramp, AA-disciplined against --surface */
+  --ink: #ece6db;
+  --ink-2: #abb1a2;
+  --ink-3: #99a18d;
+
+  /* Hairlines */
+  --border: #2a322b;
+  --border-2: #3a423a;
+
+  /* Accents — terracotta primary; sage / coral / amber carry state */
+  --accent: #e07d54;
+  --accent-dark: #c2632f;
+  --accent-light: #ec9a78;
+  --accent-soft: #2a1d14;
+  --accent-2: #74b394;
+  --accent-2-soft: #17241c;
+  --good: #74b394;
+  --bad: #e07a5f;
+  --amber: #d6a14a;
+  --info: #6ea3c2;
+  --gold: #b08a5b;
+  --alert: #e07a5f;
+
+  /* Radii — tight working controls; pills opt in explicitly */
+  --radius: 7px;
+  --radius-sm: 5px;
+  --radius-pill: 999px;
+
+  /* Type */
+  --font-serif: ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* ---- Legacy aliases (remapped to dark base) ---- */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-dark: var(--accent-dark);
+  --primary-light: var(--accent-light);
+  --secondary: var(--accent-2);
+  --surface-variant: var(--surface-2);
+  --on-surface: var(--ink);
+  --on-surface-variant: var(--ink-2);
+  --outline: var(--border);
+
+  /* Region-shading ramp (data encoding; overwritten by active preset).
+     Terminal convention: low = dim/deep, high = luminous/hot. */
+  --gradient-0: #2c2016;
+  --gradient-1: #6a3f23;
+  --gradient-2: #9d5a30;
+  --gradient-3: #c8783f;
+  --gradient-4: #e0a35d;
+  --gradient-5: #f4d196;
+
+  /* Shadows — faint and warm; borders do the structural work */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.34);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.48);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.55);
+}
+
+/*
+ * Warm light variant — same warm-neutral family, inverted. Only the base
+ * tokens are overridden; the legacy aliases reference them via var() and must
+ * be repeated here because var() substitution happens where a custom property
+ * is *declared*. Toggled by the `light-mode` body class (sidebar Theme → Dark
+ * mode off). Dark stays the boot default.
+ */
+body.light-mode {
   --bg: #f4f0e8;
   --surface: #fdfbf6;
   --surface-2: #efe9dd;
   --surface-3: #e7e0d2;
-
-  /* Ink — AA-disciplined warm neutrals */
   --ink: #22201c;
-  --ink-2: #645d50;
-  --ink-3: #8c8474;
-
-  /* Lines */
+  --ink-2: #5e574b;
+  --ink-3: #6f6757;
   --border: #ddd4c4;
   --border-2: #cfc5b2;
-
-  /* Accents — terracotta primary, green secondary, gold + alert as states */
   --accent: #b45830;
   --accent-dark: #8f4424;
   --accent-light: #c97a52;
   --accent-soft: #f1e3d8;
   --accent-2: #3b665a;
   --accent-2-soft: #dde6e0;
+  --good: #2f6b54;
+  --bad: #9a341f;
+  --amber: #8a6320;
+  --info: #356784;
   --gold: #8f6b3d;
   --alert: #9a341f;
 
-  /* Radii — 6–8px working controls; pills opt in explicitly */
-  --radius: 8px;
-  --radius-sm: 6px;
-  --radius-pill: 999px;
-
-  /* Type */
-  --font-serif: ui-serif, Georgia, 'Times New Roman', serif;
-
-  /* ---- Legacy aliases (remapped to warm-neutral) ---- */
   --background: var(--bg);
   --foreground: var(--ink);
   --primary: var(--accent);
@@ -60,66 +126,14 @@
   --on-surface-variant: var(--ink-2);
   --outline: var(--border);
 
-  /* Default region-shading ramp: terracotta sequential (overwritten by preset) */
-  --gradient-0: #f1e4d7;
-  --gradient-1: #e7c4a4;
-  --gradient-2: #d79a6e;
-  --gradient-3: #c2703f;
-  --gradient-4: #a04a22;
-  --gradient-5: #6f3216;
-
-  /* Shadows — deliberately faint and warm; borders do most of the work */
   --shadow-sm: 0 1px 2px rgba(34, 32, 28, 0.05);
   --shadow-md: 0 2px 6px rgba(34, 32, 28, 0.07);
   --shadow-lg: 0 8px 20px rgba(34, 32, 28, 0.08);
   --shadow-xl: 0 14px 32px rgba(34, 32, 28, 0.10);
 }
 
-/*
- * Warm dark variant — same brown-leaning neutral family, inverted. Only the
- * base tokens are overridden; the legacy aliases reference them via var() and
- * cascade automatically. The choropleth ramp (--gradient-*) stays as the data
- * encoding. Toggled by the `dark-mode` body class (sidebar Theme → Dark mode).
- */
-body.dark-mode {
-  --bg: #1a1713;
-  --surface: #232019;
-  --surface-2: #2c2820;
-  --surface-3: #353026;
-  --ink: #ece5d8;
-  --ink-2: #b3a995;
-  --ink-3: #8a8071;
-  --border: #3a352b;
-  --border-2: #4a4337;
-  --accent: #c97a52;
-  --accent-dark: #b45830;
-  --accent-light: #d99873;
-  --accent-soft: #3a2c22;
-  --accent-2: #6a9286;
-  --accent-2-soft: #243029;
-  --gold: #b08a5b;
-  --alert: #d98368;
-  /* Re-resolve the legacy aliases against the dark base tokens. var() in a
-     custom property is substituted where the property is *declared*, so the
-     :root aliases would otherwise stay light — they must be repeated here. */
-  --background: var(--bg);
-  --foreground: var(--ink);
-  --primary: var(--accent);
-  --primary-dark: var(--accent-dark);
-  --primary-light: var(--accent-light);
-  --secondary: var(--accent-2);
-  --surface-variant: var(--surface-2);
-  --on-surface: var(--ink);
-  --on-surface-variant: var(--ink-2);
-  --outline: var(--border);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
-  --shadow-xl: 0 14px 36px rgba(0, 0, 0, 0.55);
-}
-
-body.dark-mode .leaflet-container {
-  background: #1a1713;
+body.light-mode .leaflet-container {
+  background: var(--surface-3);
 }
 
 * {
@@ -138,19 +152,75 @@ body {
   color: var(--ink);
   background: var(--bg);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  letter-spacing: 0; /* no pseudo-editorial tracking on interface type */
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
 }
 
 .app-shell {
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--accent) 6%, transparent) 0%, transparent 55%),
+    var(--bg);
+}
+
+/* ---- Terminal primitives ---- */
+
+/* Uppercase mono micro-labels (panel headers, field captions). The terminal
+   idiom, not a marketing eyebrow: short, structural, every one earns its row. */
+.term-label {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Every figure on the desk: mono + tabular so columns of numbers align. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv01' 1;
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live status dot — sage, with a soft breathing ring. */
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--good);
+}
+
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--good) 60%, transparent);
+  animation: livePulse 2.4s ease-out infinite;
+}
+
+@keyframes livePulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 
 /* ---- Leaflet ---- */
 .leaflet-container {
-  background: var(--surface-3);
+  background: var(--bg);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -160,13 +230,14 @@ body {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .leaflet-popup-content {
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--ink);
 }
@@ -178,7 +249,7 @@ body {
 
 .custom-leaflet-tooltip {
   background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
+  border: 1px solid var(--border-2) !important;
   border-radius: var(--radius) !important;
   box-shadow: var(--shadow-md) !important;
   padding: 0 !important;
@@ -186,23 +257,30 @@ body {
   overflow: hidden !important;
   color: var(--ink) !important;
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif !important;
-  transition: opacity 0.2s ease, transform 0.2s ease !important;
+  transition: opacity 0.18s ease, transform 0.18s ease !important;
 }
 
 .custom-leaflet-tooltip::before {
-  border-top-color: var(--border) !important;
+  border-top-color: var(--border-2) !important;
 }
 
 .leaflet-tooltip-left.custom-leaflet-tooltip::before {
-  border-left-color: var(--border) !important;
+  border-left-color: var(--border-2) !important;
 }
 
 .leaflet-tooltip-right.custom-leaflet-tooltip::before {
-  border-right-color: var(--border) !important;
+  border-right-color: var(--border-2) !important;
 }
 
 .leaflet-tooltip-bottom.custom-leaflet-tooltip::before {
-  border-bottom-color: var(--border) !important;
+  border-bottom-color: var(--border-2) !important;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--border);
 }
 
 path.leaflet-interactive {
@@ -215,11 +293,11 @@ button,
 [role='button'],
 .MuiButtonBase-root {
   transition:
-    background-color 200ms ease,
-    border-color 200ms ease,
-    color 200ms ease,
-    box-shadow 200ms ease,
-    transform 160ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 140ms ease;
 }
 
 button:active,
@@ -233,8 +311,8 @@ button:active,
 }
 
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -288,6 +366,10 @@ button:active,
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .live-dot::after {
+    animation: none;
+  }
 }
 
 @layer utilities {
@@ -315,8 +397,9 @@ button:active,
   }
 
   .font-serif-identity {
-    /* HMV terminal signature: mono identity title (was serif) */
+    /* Terminal signature: mono identity title. */
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.02em;
   }
 
   .text-primary {

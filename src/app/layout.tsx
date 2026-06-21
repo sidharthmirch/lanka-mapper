@@ -25,15 +25,16 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <meta
           name="description"
-          content="Explore Sri Lanka datasets on an interactive map, time controls, and comparative charts."
+          content="A data terminal over Sri Lanka's open datasets: choropleth map, year playback, comparative time series, and a searchable catalog from LDFLK and Lanka Data Search."
         />
-        <meta property="og:title" content="Sri Lanka Data Visualizer" />
+        <meta name="theme-color" content="#0f1311" />
+        <meta property="og:title" content="Sri Lanka Open Data Terminal" />
         <meta
           property="og:description"
-          content="Interactive map and time-series explorer for Sri Lanka district and province datasets."
+          content="Interactive map, year playback, and time-series explorer across Sri Lanka district, province, and national datasets."
         />
         <link rel="icon" href="/favicon.ico" />
-        <title>Sri Lanka Data Visualizer</title>
+        <title>Sri Lanka Open Data Terminal</title>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
