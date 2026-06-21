@@ -8,6 +8,7 @@ import {
   CatalogProviderPills,
   type CatalogUpstreamProvider,
 } from '@/components/ui/CatalogProviderPills'
+import NadaArchive from './NadaArchive'
 import type { DatasetManifestEntry } from '@/types'
 
 const LDFLK_PORTAL = 'https://ldflk.github.io/datasets/'
@@ -298,6 +299,8 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
           )
         })}
       </Box>
+
+      <NadaArchive />
 
       <Typography variant="caption" className="mt-8 block text-[11px] leading-relaxed text-[var(--ink-3)]">
         Links open official agency sites in a new tab. Dataset attribution is inferred from each catalog&apos;s
