@@ -75,51 +75,72 @@ export default function DataTable({ tableData }: DataTableProps) {
           />
         </Box>
 
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-[var(--border)] bg-[var(--surface)]">
-          <table className="w-full min-w-[40rem] border-collapse text-[13px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[var(--surface-2)]">
-                {tableData.columns.map((column, i) => (
-                  <th
-                    key={column}
-                    className={`border-b border-[var(--border-2)] px-3 py-2 ${columnIsNumeric[i] ? 'text-right' : 'text-left'}`}
-                  >
-                    <span className="term-label">{column}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={tableData.columns.length} className="px-3 py-10 text-center text-[var(--ink-3)]">
-                    No rows match “{query}”.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row, rowIndex) => (
-                  <tr
-                    key={rowIndex}
-                    className="border-t border-[var(--border)]/60 transition-colors hover:bg-[var(--surface-2)]"
-                  >
-                    {row.map((cell, cellIndex) => (
-                      <td
-                        key={`${rowIndex}-${cellIndex}`}
-                        className={`px-3 py-1.5 ${
-                          columnIsNumeric[cellIndex]
-                            ? 'mono tabular-nums text-right text-[var(--ink)]'
-                            : 'text-left text-[var(--ink-2)]'
-                        }`}
+        {rows.length === 0 ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-[var(--border)] text-[13px] text-[var(--ink-3)]">
+            No rows match “{query}”.
+          </div>
+        ) : (
+          <>
+            {/* Desktop: full table */}
+            <div className="hidden min-h-0 flex-1 overflow-auto rounded-md border border-[var(--border)] bg-[var(--surface)] sm:block">
+              <table className="w-full min-w-[34rem] border-collapse text-[13px]">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-[var(--surface-2)]">
+                    {tableData.columns.map((column, i) => (
+                      <th
+                        key={column}
+                        className={`border-b border-[var(--border-2)] px-3 py-2 ${columnIsNumeric[i] ? 'text-right' : 'text-left'}`}
                       >
-                        {String(cell)}
-                      </td>
+                        <span className="term-label">{column}</span>
+                      </th>
                     ))}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIndex) => (
+                    <tr
+                      key={rowIndex}
+                      className="border-t border-[var(--border)]/60 transition-colors hover:bg-[var(--surface-2)]"
+                    >
+                      {row.map((cell, cellIndex) => (
+                        <td
+                          key={`${rowIndex}-${cellIndex}`}
+                          className={`px-3 py-1.5 ${
+                            columnIsNumeric[cellIndex]
+                              ? 'mono tabular-nums text-right text-[var(--ink)]'
+                              : 'text-left text-[var(--ink-2)]'
+                          }`}
+                        >
+                          {String(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: stacked records — every column visible, no side-scroll */}
+            <div className="min-h-0 flex-1 space-y-2 overflow-auto sm:hidden">
+              {rows.map((row, rowIndex) => (
+                <div key={rowIndex} className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
+                  {tableData.columns.map((col, ci) => (
+                    <div key={ci} className="flex items-baseline justify-between gap-3 py-0.5">
+                      <span className="term-label shrink-0">{col}</span>
+                      <span
+                        className={`min-w-0 break-words text-right text-[13px] ${
+                          columnIsNumeric[ci] ? 'mono tabular-nums text-[var(--ink)]' : 'text-[var(--ink-2)]'
+                        }`}
+                      >
+                        {String(row[ci])}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Box>
     </Box>
   )

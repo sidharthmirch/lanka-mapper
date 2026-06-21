@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMetricValue, getUnitScaleKind, isDisplayableUnit } from './formatDataValue'
+import { formatMetricValue, getUnitScaleKind, isAdditiveUnit, isDisplayableUnit } from './formatDataValue'
 
 const NBSP = '\u00a0'
 
@@ -76,5 +76,31 @@ describe('isDisplayableUnit', () => {
   it('accepts real units', () => {
     expect(isDisplayableUnit('Rs. Mn')).toBe(true)
     expect(isDisplayableUnit('rooms')).toBe(true)
+  })
+})
+
+describe('isAdditiveUnit', () => {
+  it('treats counts and currency as additive', () => {
+    expect(isAdditiveUnit('rooms')).toBe(true)
+    expect(isAdditiveUnit('persons')).toBe(true)
+    expect(isAdditiveUnit('Rs. Mn')).toBe(true)
+    expect(isAdditiveUnit('vehicles')).toBe(true)
+  })
+
+  it('treats unitless / placeholder values as additive', () => {
+    expect(isAdditiveUnit(null)).toBe(true)
+    expect(isAdditiveUnit('')).toBe(true)
+    expect(isAdditiveUnit('value')).toBe(true)
+  })
+
+  it('treats rates, shares, ratios, indices and per-capita as non-additive', () => {
+    expect(isAdditiveUnit('%')).toBe(false)
+    expect(isAdditiveUnit('percent')).toBe(false)
+    expect(isAdditiveUnit('unemployment rate')).toBe(false)
+    expect(isAdditiveUnit('per capita')).toBe(false)
+    expect(isAdditiveUnit('persons per sq km')).toBe(false)
+    expect(isAdditiveUnit('price index')).toBe(false)
+    expect(isAdditiveUnit('sex ratio')).toBe(false)
+    expect(isAdditiveUnit('°C')).toBe(false)
   })
 })

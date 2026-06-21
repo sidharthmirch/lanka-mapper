@@ -9,6 +9,8 @@ import type { ColorScale, MapData } from '@/types'
 import { applyGeoJsonStyle } from '@/lib/geoJsonStyleSync'
 import { formatMetricValue } from '@/lib/formatDataValue'
 import { DEFAULT_ACCENT_ID, getAccentPreset } from '@/lib/uiThemePresets'
+import MapDataLayers from './MapDataLayers'
+import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus'
 
 interface SriLankaMapProps {
   data: MapData[]
@@ -21,6 +23,10 @@ interface SriLankaMapProps {
   showTooltips: boolean
   showChoropleth: boolean
   showCentroids: boolean
+  /** Optional data overlays. */
+  showRivers: boolean
+  showPlants: boolean
+  showGrid: boolean
   /** Warm dark theme variant for the basemap tiles and polygon strokes. */
   isDarkMode: boolean
   /** Dataset unit label (e.g. LKR, %) appended in tooltips. */
@@ -250,6 +256,9 @@ export default function SriLankaMap({
   showTooltips,
   showChoropleth,
   showCentroids,
+  showRivers,
+  showPlants,
+  showGrid,
   isDarkMode,
   unit,
   sidebarOpen,
@@ -280,6 +289,7 @@ export default function SriLankaMap({
   const [districtGeojson, setDistrictGeojson] = useState<FeatureCollection<Geometry, DistrictProperties> | null>(null)
   const [provinceGeojson, setProvinceGeojson] = useState<FeatureCollection<Geometry, ProvinceProperties> | null>(null)
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null)
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
   const geoJsonRef = useRef<L.GeoJSON | null>(null)
   const lastHoveredRef = useRef<L.Layer | null>(null)
@@ -690,6 +700,7 @@ export default function SriLankaMap({
         zoomDelta={0.5}
         wheelPxPerZoomLevel={140}
         wheelDebounceTime={30}
+        ref={setMapInstance}
         style={{ height: '100%', width: '100%' }}
         className="rounded-lg"
       >
@@ -701,8 +712,8 @@ export default function SriLankaMap({
           key={isDarkMode ? 'carto-dark' : 'carto-light'}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={isDarkMode
-            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'}
+            ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'}
           subdomains="abcd"
           maxZoom={20}
           /* Smoother pan/zoom: hold extra tiles around the edge so panning
@@ -725,6 +736,13 @@ export default function SriLankaMap({
           geoJsonRef={geoJsonRef}
           lastHoveredRef={lastHoveredRef}
           onClearTooltip={clearTooltip}
+        />
+
+        <MapDataLayers
+          showRivers={showRivers}
+          showPlants={showPlants}
+          showGrid={showGrid}
+          isDark={isDarkMode}
         />
 
         {showCentroids && districtPoints.map(({ centroid, districtName, normalized, value }) => {
@@ -797,6 +815,18 @@ export default function SriLankaMap({
           )
         })}
       </MapContainer>
+
+      {mapInstance && (
+        <button
+          type="button"
+          onClick={() => mapInstance.setView(SRI_LANKA_CENTER, DEFAULT_ZOOM, { animate: true })}
+          aria-label="Recenter map on Sri Lanka"
+          title="Recenter"
+          className="absolute right-3 top-3 z-[800] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)]/95 text-[var(--ink-2)] shadow-[var(--shadow-md)] backdrop-blur transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] lg:top-auto lg:bottom-20"
+        >
+          <FilterCenterFocusIcon sx={{ fontSize: 18 }} />
+        </button>
+      )}
 
       {showTooltips && hoverTooltip && (
         <div

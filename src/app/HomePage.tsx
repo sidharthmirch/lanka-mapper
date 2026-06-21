@@ -43,8 +43,8 @@ import {
 const SriLankaMap = dynamic(() => import('@/components/map/SriLankaMap'), {
   ssr: false,
   loading: () => (
-    <Box className="h-full w-full flex items-center justify-center">
-      <CircularProgress />
+    <Box className="flex h-full w-full items-center justify-center bg-[var(--bg)]">
+      <span className="mono text-[11px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Loading map…</span>
     </Box>
   ),
 })
@@ -100,6 +100,9 @@ export default function HomePage() {
     error,
     showChoropleth,
     showCentroids,
+    showRivers,
+    showPlants,
+    showGrid,
     selectedDistrict,
     selectedProvince,
     colorScale,
@@ -133,6 +136,9 @@ export default function HomePage() {
       error: s.error,
       showChoropleth: s.showChoropleth,
       showCentroids: s.showCentroids,
+      showRivers: s.showRivers,
+      showPlants: s.showPlants,
+      showGrid: s.showGrid,
       selectedDistrict: s.selectedDistrict,
       selectedProvince: s.selectedProvince,
       colorScale: s.colorScale,
@@ -174,6 +180,9 @@ export default function HomePage() {
   const selectProvince = useAppStore((s) => s.selectProvince)
   const setShowChoropleth = useAppStore((s) => s.setShowChoropleth)
   const setShowCentroids = useAppStore((s) => s.setShowCentroids)
+  const setShowRivers = useAppStore((s) => s.setShowRivers)
+  const setShowPlants = useAppStore((s) => s.setShowPlants)
+  const setShowGrid = useAppStore((s) => s.setShowGrid)
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
   const [mounted, setMounted] = useState(false)
@@ -511,8 +520,14 @@ export default function HomePage() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box className="h-screen w-screen flex items-center justify-center">
-          <CircularProgress />
+        <Box className="flex h-screen w-screen items-center justify-center bg-[var(--bg)]">
+          <Box className="flex items-center gap-2.5">
+            <span
+              className="h-4 w-2 animate-pulse bg-[var(--accent)]"
+              style={{ boxShadow: '0 0 12px color-mix(in oklab, var(--accent) 55%, transparent)' }}
+            />
+            <span className="mono text-[12px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Initializing terminal</span>
+          </Box>
         </Box>
       </ThemeProvider>
     )
@@ -578,6 +593,9 @@ export default function HomePage() {
                     showTooltips={showTooltips}
                     showChoropleth={showChoropleth}
                     showCentroids={showCentroids}
+                    showRivers={showRivers}
+                    showPlants={showPlants}
+                    showGrid={showGrid}
                     isDarkMode={isDarkMode}
                     unit={currentDatasetUnit}
                     sidebarOpen={sidebarOpen}
@@ -685,6 +703,9 @@ export default function HomePage() {
               currentTab={currentTab}
               showChoropleth={showChoropleth}
               showCentroids={showCentroids}
+              showRivers={showRivers}
+              showPlants={showPlants}
+              showGrid={showGrid}
               colorScale={colorScale}
               datasetManifest={datasetManifest}
               totalDatasets={catalogCounts.total}
@@ -703,6 +724,9 @@ export default function HomePage() {
               onMetricChange={handleMetricChange}
               onToggleChoropleth={setShowChoropleth}
               onToggleCentroids={setShowCentroids}
+              onToggleRivers={setShowRivers}
+              onTogglePlants={setShowPlants}
+              onToggleGrid={setShowGrid}
               darkMode={isDarkMode}
               onToggleDarkMode={() => setThemeMode(isDarkMode ? 'light' : 'dark')}
               onViewRawData={() => setCurrentTab('table')}

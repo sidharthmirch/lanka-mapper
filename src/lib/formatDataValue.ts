@@ -73,6 +73,21 @@ export function isDisplayableUnit(unit: string | null | undefined): boolean {
   return !NON_DISPLAY_UNITS.has(t.toLowerCase())
 }
 
+/** Rates, shares, ratios, indices, per-capita, temperatures — summing across regions is meaningless. */
+const NON_ADDITIVE_RE = /%|percent|\bper\b|\brate\b|\bratio\b|\bindex\b|\baverage\b|\bmean\b|\bpp\b|°/i
+
+/**
+ * Whether summing this unit across regions is meaningful. Counts (rooms, persons,
+ * vehicles) and currency are additive; percentages, rates, ratios, indices, and
+ * per-capita figures are NOT — for those, a "total" is nonsense (e.g. summing
+ * district percentages to 340%). Callers should lead with an average instead.
+ * Unitless values default to additive.
+ */
+export function isAdditiveUnit(unit: string | null | undefined): boolean {
+  if (!isDisplayableUnit(unit)) return true
+  return !NON_ADDITIVE_RE.test(unit!.trim())
+}
+
 type UnitScaleKind = 'percent' | 'thousand' | 'million' | 'billion' | 'generic'
 
 /**

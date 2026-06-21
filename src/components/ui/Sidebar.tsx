@@ -30,7 +30,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import SyncIcon from '@mui/icons-material/Sync'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { AppTab, ColorScale, DatasetManifestEntry, MapData } from '@/types'
-import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
+import { formatMetricValue, isDisplayableUnit, isAdditiveUnit } from '@/lib/formatDataValue'
 import { useAppStore } from '@/store'
 import { useAnimatedScalar } from '@/hooks/useAnimatedScalar'
 import { ACCENT_PRESETS, GRADIENT_PRESETS, REGION_SHADING_GRADIENT_CSS } from '@/lib/uiThemePresets'
@@ -55,6 +55,9 @@ interface SidebarProps {
   currentTab: AppTab
   showChoropleth: boolean
   showCentroids: boolean
+  showRivers: boolean
+  showPlants: boolean
+  showGrid: boolean
   colorScale: ColorScale
   datasetManifest: DatasetManifestEntry[]
   totalDatasets: number
@@ -77,6 +80,9 @@ interface SidebarProps {
   onMetricChange: (metric: string) => void
   onToggleChoropleth: (show: boolean) => void
   onToggleCentroids: (show: boolean) => void
+  onToggleRivers: (show: boolean) => void
+  onTogglePlants: (show: boolean) => void
+  onToggleGrid: (show: boolean) => void
   onViewRawData: () => void
   /** Light/dark theme toggle (warm-neutral light ↔ warm dark). */
   darkMode: boolean
@@ -181,6 +187,9 @@ export default function Sidebar({
   currentTab,
   showChoropleth,
   showCentroids,
+  showRivers,
+  showPlants,
+  showGrid,
   colorScale,
   datasetManifest,
   totalDatasets,
@@ -199,6 +208,9 @@ export default function Sidebar({
   onMetricChange,
   onToggleChoropleth,
   onToggleCentroids,
+  onToggleRivers,
+  onTogglePlants,
+  onToggleGrid,
   onViewRawData,
   darkMode,
   onToggleDarkMode,
@@ -305,18 +317,20 @@ export default function Sidebar({
     return statsData.reduce((m, item) => (item.value > m.value ? item : m), statsData[0])
   }, [statsData])
 
-  const totalAggregateLabel = useMemo(() => {
-    switch (currentDatasetLevel) {
-      case 'district':
-        return 'Total, all districts'
-      case 'province':
-        return 'Total, all provinces'
-      case 'national':
-        return 'Total, national'
-      default:
-        return 'Total'
-    }
-  }, [currentDatasetLevel])
+  // Summing percentages / rates / indices across regions is meaningless (the
+  // "340%" bug). For non-additive units, lead the readout with the mean instead
+  // of a nonsense total.
+  const additive = isAdditiveUnit(currentDatasetUnit)
+  const aggregateLabel = useMemo(() => {
+    const scope = currentDatasetLevel === 'district'
+      ? ', all districts'
+      : currentDatasetLevel === 'province'
+        ? ', all provinces'
+        : currentDatasetLevel === 'national'
+          ? ', national'
+          : ''
+    return `${additive ? 'Total' : 'Average'}${scope}`
+  }, [currentDatasetLevel, additive])
 
   const showRandom = (currentTab === 'map' || currentTab === 'plots') && onRandomPick
 
@@ -566,30 +580,59 @@ export default function Sidebar({
 
               {currentTab === 'map' && (
                 <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3">
-                  <span className="term-label">Map Rendering</span>
-                  <Box className="h-2" />
-                  <Box className="mt-2 flex items-center justify-between rounded-lg bg-[var(--surface)]/60 px-2 py-1">
-                    <Box className="flex items-center gap-1">
-                      <Typography variant="caption" className="font-semibold opacity-80">
-                        Region shading
-                      </Typography>
+                  <span className="term-label">Layers</span>
+
+                  <Box className="mt-2 flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex min-w-0 items-center gap-2">
+                      <span className="h-3 w-4 shrink-0 rounded-[3px] border border-[var(--border-2)]" style={{ background: REGION_SHADING_GRADIENT_CSS }} />
+                      <Typography variant="caption" className="font-semibold opacity-85">Region shading</Typography>
                       <Tooltip title="Shades regions by value for the selected metric and year.">
-                        <InfoOutlinedIcon sx={{ fontSize: 14, color: 'var(--ink-2)' }} />
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
                       </Tooltip>
                     </Box>
-                    <Switch
-                      size="small"
-                      checked={showChoropleth}
-                      onChange={(_, checked) => onToggleChoropleth(checked)}
-                      inputProps={{ 'aria-label': 'Region shading' }}
-                    />
+                    <Switch size="small" checked={showChoropleth} onChange={(_, checked) => onToggleChoropleth(checked)} inputProps={{ 'aria-label': 'Region shading' }} />
                   </Box>
 
-                  <Box className="mt-2 flex items-center justify-between rounded-lg bg-[var(--surface)]/60 px-2 py-1">
-                    <Typography variant="caption" className="font-semibold opacity-80">
-                      Show centroid points
-                    </Typography>
-                    <Switch size="small" checked={showCentroids} onChange={(_, checked) => onToggleCentroids(checked)} />
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[var(--accent)]" />
+                      <Typography variant="caption" className="font-semibold opacity-85">Centroid points</Typography>
+                    </Box>
+                    <Switch size="small" checked={showCentroids} onChange={(_, checked) => onToggleCentroids(checked)} inputProps={{ 'aria-label': 'Centroid points' }} />
+                  </Box>
+
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="h-[3px] w-4 shrink-0 rounded-full" style={{ background: darkMode ? '#5fa8d3' : '#2e6f9e' }} />
+                      <Typography variant="caption" className="font-semibold opacity-85">Rivers</Typography>
+                    </Box>
+                    <Switch size="small" checked={showRivers} onChange={(_, checked) => onToggleRivers(checked)} inputProps={{ 'aria-label': 'Rivers' }} />
+                  </Box>
+
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="flex shrink-0 items-center gap-0.5">
+                        <span className="h-2 w-2 rounded-full" style={{ background: '#4ea3d1' }} />
+                        <span className="h-2 w-2 rounded-full" style={{ background: '#f2c14e' }} />
+                        <span className="h-2 w-2 rounded-full" style={{ background: '#6fcf97' }} />
+                      </span>
+                      <Typography variant="caption" className="font-semibold opacity-85">Power plants</Typography>
+                      <Tooltip title="CSE-listed hydro, solar and wind plants, sized by capacity.">
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                      </Tooltip>
+                    </Box>
+                    <Switch size="small" checked={showPlants} onChange={(_, checked) => onTogglePlants(checked)} inputProps={{ 'aria-label': 'Power plants' }} />
+                  </Box>
+
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="h-0 w-4 shrink-0 border-t-2 border-dashed" style={{ borderColor: darkMode ? '#cf9b46' : '#9a6a24' }} />
+                      <Typography variant="caption" className="font-semibold opacity-85">CEB grid</Typography>
+                      <Tooltip title="Transmission lines (220 / 132 / 33 / 11 kV) from OpenStreetMap.">
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                      </Tooltip>
+                    </Box>
+                    <Switch size="small" checked={showGrid} onChange={(_, checked) => onToggleGrid(checked)} inputProps={{ 'aria-label': 'CEB grid' }} />
                   </Box>
 
                   <Box className="mt-3">
@@ -675,103 +718,68 @@ export default function Sidebar({
                 <Skeleton variant="rectangular" height={110} className="rounded-lg" />
               </Box>
             ) : stats ? (
-              <Box className="space-y-4">
-                {maxItem && (
-                  <Card className="cursor-default rounded-md border border-[var(--border)] bg-[var(--surface-2)] shadow-none transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
-                    <CardContent className="p-4">
-                      <span className="term-label" style={{ color: 'var(--accent)' }}>
-                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
-                      </span>
-                      <Box className="mt-2 flex items-center justify-between gap-2">
-                        <Typography variant="body1" className="font-bold">
-                          {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
-                        </Typography>
-                        <Chip
-                          label={(
-                            <AnimatedMetricText
-                              value={maxItem.value}
-                              unit={currentDatasetUnit}
-                              playbackActive={mapPlaybackActive}
-                              durationMs={mapPlaybackFrameMs}
-                            />
-                          )}
-                          size="small"
-                          className="bg-[var(--surface)] text-primary font-bold"
-                          sx={{ borderRadius: '6px' }}
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Box className="grid grid-cols-2 gap-3">
-                  <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
-                    <CardContent className="p-4">
-                      <span className="term-label">Maximum</span>
-                      <div className="mono mt-1.5 break-all text-[19px] font-bold leading-none text-[var(--ink)]">
-                        <AnimatedMetricText
-                          value={stats.max}
-                          unit={null}
-                          playbackActive={mapPlaybackActive}
-                          durationMs={mapPlaybackFrameMs}
-                        />
-                      </div>
-                      {isDisplayableUnit(currentDatasetUnit) && (
-                        <div className="term-label mt-1.5 truncate">{currentDatasetUnit!.trim()}</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  <Card className="cursor-default rounded-md border border-[var(--border)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--border-2)]">
-                    <CardContent className="p-4">
-                      <span className="term-label">Average</span>
-                      <div className="mono mt-1.5 break-all text-[19px] font-bold leading-none text-[var(--ink)]">
-                        <AnimatedMetricText
-                          value={stats.avg}
-                          unit={null}
-                          playbackActive={mapPlaybackActive}
-                          durationMs={mapPlaybackFrameMs}
-                        />
-                      </div>
-                      {isDisplayableUnit(currentDatasetUnit) && (
-                        <div className="term-label mt-1.5 truncate">{currentDatasetUnit!.trim()}</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Box>
-
-                <Card className="cursor-default rounded-md border border-[var(--border-2)] shadow-none bg-[var(--surface-2)] transition-all duration-300 hover:translate-y-[-1px] hover:border-[var(--accent)]">
-                  <CardContent className="p-4">
-                    <span className="term-label">{totalAggregateLabel}</span>
-                    <Typography variant="h4" className="mt-1 font-bold text-primary">
+              <Box className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-2)]">
+                {/* Focal total — one big number anchors the readout; supporting stats sit below, hairline-separated (instrument panel, not a card grid). */}
+                <Box className="border-b border-[var(--border)] px-4 py-3">
+                  <Box className="flex items-baseline justify-between gap-2">
+                    <span className="term-label">{aggregateLabel}</span>
+                    <span className="mono text-[10px] text-[var(--ink-3)]">
+                      <span className="text-[var(--ink-2)]">{stats.count.toLocaleString()}</span> entries
+                    </span>
+                  </Box>
+                  <Box className="mono mt-1.5 flex items-baseline gap-1.5 break-all leading-none text-[var(--accent)]">
+                    <span className="text-[26px] font-bold">
                       <AnimatedMetricText
-                        value={stats.total}
-                        unit={currentDatasetUnit}
+                        value={additive ? stats.total : stats.avg}
+                        unit={null}
                         playbackActive={mapPlaybackActive}
                         durationMs={mapPlaybackFrameMs}
                       />
-                    </Typography>
-                  </CardContent>
-                </Card>
-
-                <Box className="flex items-center justify-between pt-2 text-[11px] font-semibold opacity-65">
-                  <span><span className="mono">{stats.count}</span> entries</span>
-                  <span>
-                    Range:{' '}
-                    <AnimatedMetricText
-                      value={stats.min}
-                      unit={currentDatasetUnit}
-                      playbackActive={mapPlaybackActive}
-                      durationMs={mapPlaybackFrameMs}
-                    />
-                    {' — '}
-                    <AnimatedMetricText
-                      value={stats.max}
-                      unit={currentDatasetUnit}
-                      playbackActive={mapPlaybackActive}
-                      durationMs={mapPlaybackFrameMs}
-                    />
-                  </span>
+                    </span>
+                    {isDisplayableUnit(currentDatasetUnit) && (
+                      <span className="text-[11px] font-semibold text-[var(--ink-3)]">{currentDatasetUnit!.trim()}</span>
+                    )}
+                  </Box>
                 </Box>
+
+                <Box className="grid grid-cols-3 divide-x divide-[var(--border)]">
+                  {((additive
+                    ? [['Max', stats.max], ['Avg', stats.avg], ['Min', stats.min]]
+                    : [['Max', stats.max], ['Min', stats.min], ['n', stats.count]]) as Array<[string, number]>).map(([label, value]) => (
+                    <Box key={label} className="px-3 py-2.5">
+                      <span className="term-label">{label}</span>
+                      <div className="mono mt-1 break-all text-[15px] font-semibold leading-none text-[var(--ink)]">
+                        <AnimatedMetricText
+                          value={value}
+                          unit={null}
+                          playbackActive={mapPlaybackActive}
+                          durationMs={mapPlaybackFrameMs}
+                        />
+                      </div>
+                    </Box>
+                  ))}
+                </Box>
+
+                {maxItem && (
+                  <Box className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5">
+                    <Box className="min-w-0">
+                      <span className="term-label" style={{ color: 'var(--accent)' }}>
+                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
+                      </span>
+                      <div className="truncate text-[13px] font-semibold text-[var(--ink)]">
+                        {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
+                      </div>
+                    </Box>
+                    <span className="mono shrink-0 text-[13px] font-bold text-[var(--accent)]">
+                      <AnimatedMetricText
+                        value={maxItem.value}
+                        unit={null}
+                        playbackActive={mapPlaybackActive}
+                        durationMs={mapPlaybackFrameMs}
+                      />
+                    </span>
+                  </Box>
+                )}
               </Box>
             ) : (
               <Box className="text-center py-12 opacity-60">

@@ -62,6 +62,10 @@ interface AppState {
   sidebarOpen: boolean
   showChoropleth: boolean
   showCentroids: boolean
+  /** Optional map data layers (off by default). */
+  showRivers: boolean
+  showPlants: boolean
+  showGrid: boolean
   currentTab: AppTab
   colorScale: ColorScale
   showTooltips: boolean
@@ -86,6 +90,9 @@ interface AppState {
   setSelectedMetric: (metric: string) => void
   setShowChoropleth: (show: boolean) => void
   setShowCentroids: (show: boolean) => void
+  setShowRivers: (show: boolean) => void
+  setShowPlants: (show: boolean) => void
+  setShowGrid: (show: boolean) => void
   setCurrentTab: (tab: AppTab) => void
   setPlotYearRange: (range: [number, number]) => void
   setPlotSeriesSelection: (names: string[]) => void
@@ -237,6 +244,9 @@ export const useAppStore = create<AppState>()(
         sidebarOpen: true,
         showChoropleth: true,
         showCentroids: false,
+        showRivers: false,
+        showPlants: false,
+        showGrid: false,
         currentTab: 'map',
         colorScale: DEFAULT_COLOR_SCALE,
         showTooltips: true,
@@ -494,6 +504,9 @@ export const useAppStore = create<AppState>()(
 
         setShowChoropleth: (show) => set({ showChoropleth: show }),
         setShowCentroids: (show) => set({ showCentroids: show }),
+        setShowRivers: (show) => set({ showRivers: show }),
+        setShowPlants: (show) => set({ showPlants: show }),
+        setShowGrid: (show) => set({ showGrid: show }),
         setCurrentTab: (tab) => {
           set({ currentTab: tab })
           const { currentDataset, currentYear, selectedMetric } = get()
