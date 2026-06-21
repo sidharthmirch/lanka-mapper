@@ -57,6 +57,7 @@ interface SidebarProps {
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
+  showCebLive: boolean
   colorScale: ColorScale
   datasetManifest: DatasetManifestEntry[]
   totalDatasets: number
@@ -81,6 +82,7 @@ interface SidebarProps {
   onToggleRivers: (show: boolean) => void
   onTogglePlants: (show: boolean) => void
   onToggleGrid: (show: boolean) => void
+  onToggleCebLive: (show: boolean) => void
   onViewRawData: () => void
   /** Light/dark theme toggle (warm-neutral light ↔ warm dark). */
   darkMode: boolean
@@ -187,6 +189,7 @@ export default function Sidebar({
   showRivers,
   showPlants,
   showGrid,
+  showCebLive,
   colorScale,
   datasetManifest,
   totalDatasets,
@@ -207,6 +210,7 @@ export default function Sidebar({
   onToggleRivers,
   onTogglePlants,
   onToggleGrid,
+  onToggleCebLive,
   onViewRawData,
   darkMode,
   onToggleDarkMode,
@@ -622,6 +626,17 @@ export default function Sidebar({
                       </Tooltip>
                     </Box>
                     <Switch size="small" checked={showGrid} onChange={(_, checked) => onToggleGrid(checked)} inputProps={{ 'aria-label': 'CEB grid' }} />
+                  </Box>
+
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="live-dot shrink-0" />
+                      <Typography variant="caption" className="font-semibold opacity-85">CEB live mix</Typography>
+                      <Tooltip title="Live national generation mix by source from the CEB Generation Summary (snapshot, refreshed periodically).">
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                      </Tooltip>
+                    </Box>
+                    <Switch size="small" checked={showCebLive} onChange={(_, checked) => onToggleCebLive(checked)} inputProps={{ 'aria-label': 'CEB live mix' }} />
                   </Box>
 
                   <Box className="mt-3">

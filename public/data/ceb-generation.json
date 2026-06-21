@@ -1,0 +1,65 @@
+{
+  "fetchedAt": "2026-06-21T17:56:07.509Z",
+  "asOf": "2026-06-20 23:45:00",
+  "source": "CEB Generation Summary (edlcare.edl.lk/gensum)",
+  "totalMW": 1858.2,
+  "cleanPct": 35.7,
+  "sources": [
+    {
+      "name": "Coal",
+      "label": "Coal",
+      "color": "#8a8f98",
+      "clean": false,
+      "mw": 740.6,
+      "pct": 39.9
+    },
+    {
+      "name": "Thermal-Oil",
+      "label": "Oil",
+      "color": "#b3553a",
+      "clean": false,
+      "mw": 453.5,
+      "pct": 24.4
+    },
+    {
+      "name": "Major Hydro",
+      "label": "Major hydro",
+      "color": "#4ea3d1",
+      "clean": true,
+      "mw": 423.8,
+      "pct": 22.8
+    },
+    {
+      "name": "Wind",
+      "label": "Wind",
+      "color": "#6fcf97",
+      "clean": true,
+      "mw": 129.1,
+      "pct": 6.9
+    },
+    {
+      "name": "SPP Minihydro",
+      "label": "Mini hydro",
+      "color": "#5fa8d3",
+      "clean": true,
+      "mw": 85.9,
+      "pct": 4.6
+    },
+    {
+      "name": "SPP Biomass",
+      "label": "Biomass",
+      "color": "#8a6d3b",
+      "clean": true,
+      "mw": 25.4,
+      "pct": 1.4
+    },
+    {
+      "name": "Solar",
+      "label": "Solar",
+      "color": "#f2c14e",
+      "clean": true,
+      "mw": 0,
+      "pct": 0
+    }
+  ]
+}

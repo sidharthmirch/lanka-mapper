@@ -25,6 +25,7 @@ import DataTable from '@/components/tabs/DataTable'
 import SourcesContent from '@/components/tabs/SourcesContent'
 import MapTimeToolbar, { type MapPlaybackSpeed } from '@/components/map/MapTimeToolbar'
 import MapColorLegend from '@/components/map/MapColorLegend'
+import CebLivePanel from '@/components/map/CebLivePanel'
 import {
   buildPlaybackSchedule,
   FRAMES_PER_GAP,
@@ -103,6 +104,7 @@ export default function HomePage() {
     showRivers,
     showPlants,
     showGrid,
+    showCebLive,
     selectedDistrict,
     selectedProvince,
     colorScale,
@@ -139,6 +141,7 @@ export default function HomePage() {
       showRivers: s.showRivers,
       showPlants: s.showPlants,
       showGrid: s.showGrid,
+      showCebLive: s.showCebLive,
       selectedDistrict: s.selectedDistrict,
       selectedProvince: s.selectedProvince,
       colorScale: s.colorScale,
@@ -182,6 +185,7 @@ export default function HomePage() {
   const setShowRivers = useAppStore((s) => s.setShowRivers)
   const setShowPlants = useAppStore((s) => s.setShowPlants)
   const setShowGrid = useAppStore((s) => s.setShowGrid)
+  const setShowCebLive = useAppStore((s) => s.setShowCebLive)
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
   const [mounted, setMounted] = useState(false)
@@ -630,6 +634,12 @@ export default function HomePage() {
                     />
                   )}
 
+                  {showCebLive && (
+                    <Box className="pointer-events-none absolute left-1/2 top-3 z-[856] -translate-x-1/2">
+                      <CebLivePanel />
+                    </Box>
+                  )}
+
                   {activeDataset && (
                     <Box
                       className={`absolute bottom-8 z-[860] md:bottom-6 xl:bottom-4 ${
@@ -702,6 +712,7 @@ export default function HomePage() {
               showRivers={showRivers}
               showPlants={showPlants}
               showGrid={showGrid}
+              showCebLive={showCebLive}
               colorScale={colorScale}
               datasetManifest={datasetManifest}
               totalDatasets={catalogCounts.total}
@@ -722,6 +733,7 @@ export default function HomePage() {
               onToggleRivers={setShowRivers}
               onTogglePlants={setShowPlants}
               onToggleGrid={setShowGrid}
+              onToggleCebLive={setShowCebLive}
               darkMode={isDarkMode}
               onToggleDarkMode={() => setThemeMode(isDarkMode ? 'light' : 'dark')}
               onViewRawData={() => setCurrentTab('table')}

@@ -67,6 +67,8 @@ interface AppState {
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
+  /** Live CEB generation-mix panel. */
+  showCebLive: boolean
   currentTab: AppTab
   colorScale: ColorScale
   showTooltips: boolean
@@ -94,6 +96,7 @@ interface AppState {
   setShowRivers: (show: boolean) => void
   setShowPlants: (show: boolean) => void
   setShowGrid: (show: boolean) => void
+  setShowCebLive: (show: boolean) => void
   setCurrentTab: (tab: AppTab) => void
   setPlotYearRange: (range: [number, number]) => void
   setPlotSeriesSelection: (names: string[]) => void
@@ -248,6 +251,7 @@ export const useAppStore = create<AppState>()(
         showRivers: false,
         showPlants: false,
         showGrid: false,
+        showCebLive: false,
         currentTab: 'map',
         colorScale: DEFAULT_COLOR_SCALE,
         showTooltips: true,
@@ -509,6 +513,7 @@ export const useAppStore = create<AppState>()(
         setShowRivers: (show) => set({ showRivers: show }),
         setShowPlants: (show) => set({ showPlants: show }),
         setShowGrid: (show) => set({ showGrid: show }),
+        setShowCebLive: (show) => set({ showCebLive: show }),
         setCurrentTab: (tab) => {
           set({ currentTab: tab })
           const { currentDataset, currentYear, selectedMetric } = get()
