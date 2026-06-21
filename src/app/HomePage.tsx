@@ -685,7 +685,12 @@ export default function HomePage() {
                 <DataTable tableData={tableData} />
               )}
 
-              {currentTab === 'sources' && <SourcesContent />}
+              {currentTab === 'sources' && (
+                <SourcesContent
+                  datasetManifest={datasetManifest}
+                  onSelectDataset={handleToolbarDatasetSelect}
+                />
+              )}
               </motion.div>
             </div>
 
