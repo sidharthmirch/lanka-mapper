@@ -26,9 +26,7 @@ interface TabBarProps {
   randomDisabled: boolean
   onRandomPick: () => void
   showChoropleth: boolean
-  showCentroids: boolean
   onToggleChoropleth: (show: boolean) => void
-  onToggleCentroids: (show: boolean) => void
 }
 
 const TABS: Array<{ id: AppTab; label: string }> = [
@@ -87,9 +85,7 @@ export default function TabBar({
   randomDisabled,
   onRandomPick,
   showChoropleth,
-  showCentroids,
   onToggleChoropleth,
-  onToggleCentroids,
 }: TabBarProps) {
   const [inputValue, setInputValue] = useState('')
 
@@ -198,14 +194,6 @@ export default function TabBar({
                 checked={showChoropleth}
                 onChange={(_, checked) => onToggleChoropleth(checked)}
                 inputProps={{ 'aria-label': 'Region shading' }}
-              />
-            </Tooltip>
-            <Tooltip title="Show centroid points">
-              <Switch
-                size="small"
-                checked={showCentroids}
-                onChange={(_, checked) => onToggleCentroids(checked)}
-                inputProps={{ 'aria-label': 'Show centroid points' }}
               />
             </Tooltip>
           </div>

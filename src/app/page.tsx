@@ -9,7 +9,7 @@ const HomePage = dynamic(() => import('@/app/HomePage'), {
           className="h-4 w-2 animate-pulse bg-[var(--accent)]"
           style={{ boxShadow: '0 0 12px color-mix(in oklab, var(--accent) 55%, transparent)' }}
         />
-        <span className="mono text-[12px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Initializing terminal</span>
+        <span className="mono text-[12px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Lanka Mapper</span>
       </div>
     </div>
   ),

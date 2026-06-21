@@ -179,7 +179,6 @@ export default function HomePage() {
   const selectDistrict = useAppStore((s) => s.selectDistrict)
   const selectProvince = useAppStore((s) => s.selectProvince)
   const setShowChoropleth = useAppStore((s) => s.setShowChoropleth)
-  const setShowCentroids = useAppStore((s) => s.setShowCentroids)
   const setShowRivers = useAppStore((s) => s.setShowRivers)
   const setShowPlants = useAppStore((s) => s.setShowPlants)
   const setShowGrid = useAppStore((s) => s.setShowGrid)
@@ -526,7 +525,7 @@ export default function HomePage() {
               className="h-4 w-2 animate-pulse bg-[var(--accent)]"
               style={{ boxShadow: '0 0 12px color-mix(in oklab, var(--accent) 55%, transparent)' }}
             />
-            <span className="mono text-[12px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Initializing terminal</span>
+            <span className="mono text-[12px] uppercase tracking-[0.16em] text-[var(--ink-3)]">Lanka Mapper</span>
           </Box>
         </Box>
       </ThemeProvider>
@@ -568,9 +567,7 @@ export default function HomePage() {
                 randomDisabled={randomPickDisabled}
                 onRandomPick={handleRandomPick}
                 showChoropleth={showChoropleth}
-                showCentroids={showCentroids}
                 onToggleChoropleth={setShowChoropleth}
-                onToggleCentroids={setShowCentroids}
               />
               <motion.div
                 initial={{ opacity: 0 }}
@@ -702,7 +699,6 @@ export default function HomePage() {
               currentDatasetUnit={currentDatasetUnit}
               currentTab={currentTab}
               showChoropleth={showChoropleth}
-              showCentroids={showCentroids}
               showRivers={showRivers}
               showPlants={showPlants}
               showGrid={showGrid}
@@ -723,7 +719,6 @@ export default function HomePage() {
               onDatasetChange={handleDatasetChange}
               onMetricChange={handleMetricChange}
               onToggleChoropleth={setShowChoropleth}
-              onToggleCentroids={setShowCentroids}
               onToggleRivers={setShowRivers}
               onTogglePlants={setShowPlants}
               onToggleGrid={setShowGrid}

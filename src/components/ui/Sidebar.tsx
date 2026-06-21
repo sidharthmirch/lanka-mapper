@@ -54,7 +54,6 @@ interface SidebarProps {
   currentDatasetUnit: string | null
   currentTab: AppTab
   showChoropleth: boolean
-  showCentroids: boolean
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
@@ -79,7 +78,6 @@ interface SidebarProps {
   onDatasetChange: (dataset: string) => void
   onMetricChange: (metric: string) => void
   onToggleChoropleth: (show: boolean) => void
-  onToggleCentroids: (show: boolean) => void
   onToggleRivers: (show: boolean) => void
   onTogglePlants: (show: boolean) => void
   onToggleGrid: (show: boolean) => void
@@ -186,7 +184,6 @@ export default function Sidebar({
   currentDatasetUnit,
   currentTab,
   showChoropleth,
-  showCentroids,
   showRivers,
   showPlants,
   showGrid,
@@ -207,7 +204,6 @@ export default function Sidebar({
   onDatasetChange,
   onMetricChange,
   onToggleChoropleth,
-  onToggleCentroids,
   onToggleRivers,
   onTogglePlants,
   onToggleGrid,
@@ -541,6 +537,7 @@ export default function Sidebar({
                 <PlotSeriesPicker
                   seriesNames={seriesNames}
                   selected={plotSeriesSelection.filter((n) => seriesNames.includes(n))}
+                  seriesData={seriesData}
                   onChange={onPlotSeriesSelectionChange}
                   isDark={darkMode}
                 />
@@ -591,14 +588,6 @@ export default function Sidebar({
                       </Tooltip>
                     </Box>
                     <Switch size="small" checked={showChoropleth} onChange={(_, checked) => onToggleChoropleth(checked)} inputProps={{ 'aria-label': 'Region shading' }} />
-                  </Box>
-
-                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
-                    <Box className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[var(--accent)]" />
-                      <Typography variant="caption" className="font-semibold opacity-85">Centroid points</Typography>
-                    </Box>
-                    <Switch size="small" checked={showCentroids} onChange={(_, checked) => onToggleCentroids(checked)} inputProps={{ 'aria-label': 'Centroid points' }} />
                   </Box>
 
                   <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">

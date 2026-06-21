@@ -16,6 +16,7 @@ import {
 } from '@/services/dataService'
 import { type AccentTone, DEFAULT_ACCENT_ID, DEFAULT_GRADIENT_ID, getGradientColors } from '@/lib/uiThemePresets'
 import { buildMapDataInterpolated, PROVINCE_TO_DISTRICTS } from '@/lib/mapInterpolation'
+import { orderSeriesByMagnitude } from '@/lib/seriesOrder'
 
 interface LoadDatasetOptions {
   forceRefresh?: boolean
@@ -447,8 +448,9 @@ export const useAppStore = create<AppState>()(
               sortedDatasetYears[sortedDatasetYears.length - 1] ?? supportedYear,
             ]
 
-            const seriesKeys = Object.keys(seriesData).sort((a, b) => a.localeCompare(b))
-            const defaultPlotSeries = seriesKeys.slice(0, Math.min(4, seriesKeys.length))
+            // Default to the largest series so the plot opens on the most significant lines.
+            const orderedSeriesKeys = orderSeriesByMagnitude(seriesData, Object.keys(seriesData))
+            const defaultPlotSeries = orderedSeriesKeys.slice(0, Math.min(4, orderedSeriesKeys.length))
 
             set({
               data,

@@ -76,7 +76,6 @@ test('small map viewport keeps controls from colliding', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: 'Random dataset' })).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'Region shading' })).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: 'Show centroid points' })).toBeVisible()
 
   // Expanding the panel reveals the ranking rows.
   await page.getByRole('button', { name: 'Top Regions' }).click()

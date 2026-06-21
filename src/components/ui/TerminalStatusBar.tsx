@@ -82,7 +82,7 @@ export default function TerminalStatusBar({
       className="flex w-full shrink-0 items-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[var(--ink)] shadow-[var(--shadow-sm)] sm:gap-3 sm:px-3.5"
       style={{ fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace' }}
     >
-      {/* Cursor mark — the wordmark-free identity */}
+      {/* Cursor mark + wordmark */}
       <span
         aria-hidden
         className="hidden h-3.5 w-2 shrink-0 sm:block"
@@ -91,6 +91,9 @@ export default function TerminalStatusBar({
           boxShadow: '0 0 10px color-mix(in oklab, var(--accent) 55%, transparent)',
         }}
       />
+      <span className="hidden shrink-0 whitespace-nowrap text-[12px] font-semibold tracking-[0.01em] text-[var(--ink)] sm:inline">
+        Lanka Mapper
+      </span>
 
       {/* Link state */}
       <Cell>

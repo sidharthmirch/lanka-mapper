@@ -3,11 +3,14 @@
 import { useMemo, useState } from 'react'
 import CheckIcon from '@mui/icons-material/Check'
 import { getSeriesColors } from '@/lib/uiThemePresets'
+import { orderSeriesByMagnitude } from '@/lib/seriesOrder'
 
 interface PlotSeriesPickerProps {
   seriesNames: string[]
-  /** Selected names, in chart order (index → line color). */
+  /** Selected names. */
   selected: string[]
+  /** Values per series — drives the largest → smallest order + swatch colors. */
+  seriesData: Record<string, Record<number, number>>
   onChange: (names: string[]) => void
   isDark: boolean
 }
@@ -21,16 +24,19 @@ const SHOW_FILTER_THRESHOLD = 7
  * roomy row with a checkbox and a swatch matching its chart line. Selecting
  * appends (preserving chart color order); a filter appears once the list is long.
  */
-export default function PlotSeriesPicker({ seriesNames, selected, onChange, isDark }: PlotSeriesPickerProps) {
+export default function PlotSeriesPicker({ seriesNames, selected, seriesData, onChange, isDark }: PlotSeriesPickerProps) {
   const [query, setQuery] = useState('')
   const colors = getSeriesColors(isDark)
 
   const selectedSet = useMemo(() => new Set(selected), [selected])
+  // Largest → smallest, matching the chart's line order.
+  const orderedAll = useMemo(() => orderSeriesByMagnitude(seriesData, seriesNames), [seriesData, seriesNames])
+  const orderedSelected = useMemo(() => orderedAll.filter((n) => selectedSet.has(n)), [orderedAll, selectedSet])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return seriesNames
-    return seriesNames.filter((n) => n.toLowerCase().includes(q))
-  }, [seriesNames, query])
+    if (!q) return orderedAll
+    return orderedAll.filter((n) => n.toLowerCase().includes(q))
+  }, [orderedAll, query])
 
   const allOn = seriesNames.length > 0 && seriesNames.every((n) => selectedSet.has(n))
 
@@ -93,9 +99,8 @@ export default function PlotSeriesPicker({ seriesNames, selected, onChange, isDa
           <li className="px-3 py-6 text-center text-[12px] text-[var(--ink-3)]">No series match “{query}”.</li>
         ) : (
           filtered.map((name) => {
-            const idx = selected.indexOf(name)
-            const on = idx >= 0
-            const color = colors[idx % colors.length]
+            const on = selectedSet.has(name)
+            const color = colors[orderedSelected.indexOf(name) % colors.length]
             return (
               <li key={name}>
                 <button

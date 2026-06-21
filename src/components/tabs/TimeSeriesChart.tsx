@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { Box, Link, Typography } from '@mui/material'
 import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
 import { getSeriesColors } from '@/lib/uiThemePresets'
+import { orderSeriesByMagnitude } from '@/lib/seriesOrder'
 import {
   Bar,
   BarChart,
@@ -102,6 +103,12 @@ export default function TimeSeriesChart({
     if (names.length === 0) return []
     return selectedSeries.filter((n) => names.includes(n))
   }, [names, selectedSeries])
+
+  // Render lines + legend largest → smallest so the plot reads in magnitude order.
+  const orderedNames = useMemo(
+    () => orderSeriesByMagnitude(seriesData, effectiveNames),
+    [seriesData, effectiveNames],
+  )
 
   const filteredYears = useMemo(
     () => sortedYears.filter((y) => y >= yearRange[0] && y <= yearRange[1]),
@@ -217,7 +224,7 @@ export default function TimeSeriesChart({
                 <YAxis tick={axisTick} stroke={chrome.grid} label={{ value: yLabel, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10, fill: chrome.tick } }} />
                 <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
                 <Legend wrapperStyle={{ fontSize: 11, color: chrome.tick }} />
-                {effectiveNames.map((name, index) => (
+                {orderedNames.map((name, index) => (
                   <Line
                     key={name}
                     dataKey={name}
