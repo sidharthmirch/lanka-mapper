@@ -315,7 +315,8 @@ button:active,
   }
 
   .font-serif-identity {
-    font-family: var(--font-serif);
+    /* HMV terminal signature: mono identity title (was serif) */
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   .text-primary {
