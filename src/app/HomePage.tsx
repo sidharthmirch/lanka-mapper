@@ -26,6 +26,7 @@ import SourcesContent from '@/components/tabs/SourcesContent'
 import MapTimeToolbar, { type MapPlaybackSpeed } from '@/components/map/MapTimeToolbar'
 import MapColorLegend from '@/components/map/MapColorLegend'
 import CebLivePanel from '@/components/map/CebLivePanel'
+import FloatingPanel from '@/components/map/FloatingPanel'
 import {
   buildPlaybackSchedule,
   FRAMES_PER_GAP,
@@ -195,6 +196,8 @@ export default function HomePage() {
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
   const [mounted, setMounted] = useState(false)
+  /** Floating "Top Regions" card can be closed (restored via the on-map chip). */
+  const [rankingsHidden, setRankingsHidden] = useState(false)
   const [mapPlaybackActive, setMapPlaybackActive] = useState(false)
   const [mapPlaybackSpeed, setMapPlaybackSpeed] = useState<MapPlaybackSpeed>(1)
   const [mapPlaybackLoop, setMapPlaybackLoop] = useState(false)
@@ -649,8 +652,12 @@ export default function HomePage() {
                     </Box>
                   )}
 
-                  {data && data.length > 0 && (
-                    <Box className="absolute left-3 top-3 z-[850] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]">
+                  {data && data.length > 0 && !rankingsHidden && (
+                    <FloatingPanel
+                      label="Top Regions"
+                      onClose={() => setRankingsHidden(true)}
+                      className="absolute left-3 top-3 z-[850] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]"
+                    >
                       <RankingsChart
                         data={rankingsData}
                         unit={currentDatasetUnit}
@@ -658,7 +665,18 @@ export default function HomePage() {
                         playbackActive={mapPlaybackActive}
                         animationDurationMs={mapPlaybackFrameMs}
                       />
-                    </Box>
+                    </FloatingPanel>
+                  )}
+
+                  {data && data.length > 0 && rankingsHidden && (
+                    <button
+                      type="button"
+                      onClick={() => setRankingsHidden(false)}
+                      className="absolute left-3 top-3 z-[850] flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] md:left-4 md:top-4"
+                    >
+                      <span className="term-label">Top Regions</span>
+                      <span aria-hidden className="text-[13px] leading-none">+</span>
+                    </button>
                   )}
 
                   {data && data.length > 0 && showChoropleth && (
@@ -671,9 +689,13 @@ export default function HomePage() {
                   )}
 
                   {showCebLive && (
-                    <Box className="pointer-events-none absolute left-1/2 top-3 z-[856] -translate-x-1/2">
+                    <FloatingPanel
+                      label="CEB live mix"
+                      onClose={() => setShowCebLive(false)}
+                      className="absolute left-1/2 top-3 z-[856] ml-[-132px]"
+                    >
                       <CebLivePanel />
-                    </Box>
+                    </FloatingPanel>
                   )}
 
                   {activeDataset && (
