@@ -25,11 +25,14 @@ export interface DistrictFeature {
   }
 }
 
+/** ldflk + nuuuwan are the live upstream catalogs; local = static datasets we curate (data.gov.lk / CBSL / DCS). */
+export type DatasetSource = 'ldflk' | 'nuuuwan' | 'local'
+
 export interface DatasetManifestEntry {
   id: string
   name: string
   description: string
-  source: 'ldflk' | 'nuuuwan'
+  source: DatasetSource
   secondarySource?: string
   unit: string
   level: 'district' | 'province' | 'national'

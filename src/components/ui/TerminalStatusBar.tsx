@@ -4,7 +4,8 @@ import { IconButton, Tooltip, CircularProgress } from '@mui/material'
 import SyncIcon from '@mui/icons-material/Sync'
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined'
-import type { AppTab } from '@/types'
+import type { AppTab, DatasetSource } from '@/types'
+import { sourceShortLabel } from '@/lib/sourceLabels'
 
 export type TerminalLink = 'live' | 'loading' | 'error'
 
@@ -12,7 +13,7 @@ interface TerminalStatusBarProps {
   link: TerminalLink
   errorMessage?: string | null
   datasetName: string | null
-  source: 'ldflk' | 'nuuuwan' | null
+  source: DatasetSource | null
   level: 'district' | 'province' | 'national' | null
   unit: string | null
   currentYear: number
@@ -32,10 +33,8 @@ const LINK_TEXT: Record<TerminalLink, string> = {
   error: 'ERR',
 }
 
-function sourceLabel(source: 'ldflk' | 'nuuuwan' | null): string {
-  if (source === 'ldflk') return 'LDFLK'
-  if (source === 'nuuuwan') return 'LDS'
-  return '—'
+function sourceLabel(source: DatasetSource | null): string {
+  return source ? sourceShortLabel(source) : '—'
 }
 
 function Cell({ children }: { children: React.ReactNode }) {

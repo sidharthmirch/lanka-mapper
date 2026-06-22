@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist, devtools } from 'zustand/middleware'
-import type { AppTab, ColorScale, LatLngTuple, MapData, TabularData, ThemeMode, DatasetManifestEntry } from '@/types'
+import type { AppTab, ColorScale, DatasetSource, LatLngTuple, MapData, TabularData, ThemeMode, DatasetManifestEntry } from '@/types'
 import {
   fetchDataset,
   fetchDatasetCatalog,
@@ -41,6 +41,7 @@ interface AppState {
     total: number
     ldflk: number
     nuuuwan: number
+    local: number
   }
 
   currentDataset: string | null
@@ -48,7 +49,7 @@ interface AppState {
   data: MapData[] | null
   selectedMetric: string | null
   currentDatasetLevel: 'district' | 'province' | 'national' | null
-  currentDatasetSource: 'ldflk' | 'nuuuwan' | null
+  currentDatasetSource: DatasetSource | null
   currentDatasetSecondarySource: string | null
   currentDatasetUnit: string | null
   availableMetrics: string[]
@@ -227,6 +228,7 @@ export const useAppStore = create<AppState>()(
           total: 0,
           ldflk: 0,
           nuuuwan: 0,
+          local: 0,
         },
 
         currentDataset: null,

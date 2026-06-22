@@ -29,8 +29,9 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import SyncIcon from '@mui/icons-material/Sync'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import type { AppTab, ColorScale, DatasetManifestEntry, MapData } from '@/types'
+import type { AppTab, ColorScale, DatasetManifestEntry, DatasetSource, MapData } from '@/types'
 import { formatMetricValue, isDisplayableUnit, isAdditiveUnit } from '@/lib/formatDataValue'
+import { sourceShortLabel, sourceFullLabel } from '@/lib/sourceLabels'
 import { useAppStore } from '@/store'
 import { useAnimatedScalar } from '@/hooks/useAnimatedScalar'
 import { ACCENT_PRESETS, GRADIENT_PRESETS, REGION_SHADING_GRADIENT_CSS } from '@/lib/uiThemePresets'
@@ -49,7 +50,7 @@ interface SidebarProps {
   availableMetrics: string[]
   currentDatasetLevel: 'district' | 'province' | 'national' | null
   years: number[]
-  currentDatasetSource: 'ldflk' | 'nuuuwan' | null
+  currentDatasetSource: DatasetSource | null
   currentDatasetSecondarySource: string | null
   currentDatasetUnit: string | null
   currentTab: AppTab
@@ -124,12 +125,6 @@ const MAX_SIDEBAR_DATASET_OPTIONS = 180
 
 const LDFLK_REPO_URL = 'https://github.com/LDFLK/datasets'
 const LDS_PORTAL_URL = 'https://nuuuwan.github.io/lanka_data_search/'
-
-function getSourceLabel(source: 'ldflk' | 'nuuuwan' | null): string {
-  if (source === 'ldflk') return 'Lanka Data Foundation (LDFLK)'
-  if (source === 'nuuuwan') return 'Lanka Data Search (LDS)'
-  return 'N/A'
-}
 
 function getLevelChipStyles(level: 'district' | 'province' | 'national') {
   if (level === 'district') return { label: 'District', className: 'bg-[var(--surface-2)] text-[var(--ink)]' }
@@ -448,7 +443,7 @@ export default function Sidebar({
                           <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography variant="body2" className="font-semibold truncate">{dataset.name}</Typography>
                             <Typography variant="caption" className="opacity-65 truncate block">
-                              {dataset.source === 'ldflk' ? 'LDFLK' : 'LDS'} · {dataset.years[0]}{dataset.years.length > 1 ? ` to ${dataset.years[dataset.years.length - 1]}` : ''}
+                              {sourceShortLabel(dataset.source)} · {dataset.years[0]}{dataset.years.length > 1 ? ` to ${dataset.years[dataset.years.length - 1]}` : ''}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
@@ -549,7 +544,7 @@ export default function Sidebar({
 
               <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/56 p-3 text-xs space-y-0.5">
                 <div>
-                  Source: <span className="font-semibold">{getSourceLabel(currentDatasetSource)}</span>
+                  Source: <span className="font-semibold">{sourceFullLabel(currentDatasetSource)}</span>
                 </div>
                 <div>
                   Department: <span className="font-semibold">{currentDatasetSecondarySource || 'N/A'}</span>

@@ -5,6 +5,8 @@ import { Box, Link, Typography } from '@mui/material'
 import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
 import { getSeriesColors } from '@/lib/uiThemePresets'
 import { orderSeriesByMagnitude } from '@/lib/seriesOrder'
+import { sourceShortLabel } from '@/lib/sourceLabels'
+import type { DatasetSource } from '@/types'
 import {
   Bar,
   BarChart,
@@ -25,7 +27,7 @@ interface TimeSeriesChartProps {
   years: number[]
   seriesData: Record<string, Record<number, number>>
   datasetName: string
-  primarySource: 'ldflk' | 'nuuuwan' | null
+  primarySource: DatasetSource | null
   secondarySource: string | null
   unit: string | null
   citation?: string
@@ -61,11 +63,7 @@ export default function TimeSeriesChart({
   selectedSeries,
   isDark = true,
 }: TimeSeriesChartProps) {
-  const sourceLabel = primarySource === 'ldflk'
-    ? 'LDFLK'
-    : primarySource === 'nuuuwan'
-      ? 'LDS'
-      : 'N/A'
+  const sourceLabel = primarySource ? sourceShortLabel(primarySource) : 'N/A'
 
   const chrome = isDark
     ? { grid: '#2a322b', tick: '#abb1a2', tooltipBg: '#161b18', tooltipBorder: '#3a423a', text: '#ece6db' }

@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import ShuffleIcon from '@mui/icons-material/Shuffle'
 import type { AppTab, DatasetManifestEntry } from '@/types'
+import { sourceShortLabel } from '@/lib/sourceLabels'
 
 interface TabBarProps {
   currentTab: AppTab
@@ -235,7 +236,7 @@ export default function TabBar({
                       {option.name}
                     </Typography>
                     <Typography variant="caption" className="opacity-65 truncate block">
-                      {option.source === 'ldflk' ? 'LDFLK' : 'LDS'}
+                      {sourceShortLabel(option.source)}
                       {' · '}
                       {option.years[0]}
                       {option.years.length > 1 ? ` to ${option.years[option.years.length - 1]}` : ''}

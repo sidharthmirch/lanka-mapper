@@ -1,0 +1,42 @@
+[
+  {
+    "id": "population-by-district-census",
+    "name": "Population by District (Census)",
+    "description": "Total population by district across census years 1871–2012.",
+    "secondarySource": "Dept. of Census & Statistics",
+    "unit": "persons",
+    "level": "district",
+    "metrics": [
+      "Value"
+    ],
+    "citation": "Department of Census and Statistics, Sri Lanka (via data.gov.lk)",
+    "citationUrl": "https://data.gov.lk/dataset/population-district-census-years",
+    "tags": [
+      "local",
+      "census",
+      "population",
+      "district"
+    ],
+    "source": "local",
+    "path": "local:population-by-district-census",
+    "years": [
+      1871,
+      1881,
+      1891,
+      1901,
+      1911,
+      1921,
+      1931,
+      1946,
+      1953,
+      1963,
+      1971,
+      1981,
+      2001,
+      2012
+    ],
+    "defaultMetric": "Value",
+    "hasGeo": true,
+    "hasTime": true
+  }
+]

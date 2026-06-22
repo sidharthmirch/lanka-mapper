@@ -11,6 +11,15 @@ const LDFLK_GIT_TREE_URL = 'https://api.github.com/repos/LDFLK/datasets/git/tree
 const NUUUWAN_ALL_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/all.json'
 const NUUUWAN_BASE_URL = 'https://raw.githubusercontent.com/nuuuwan/lanka_data_timeseries/data/sources/cbsl'
 
+/**
+ * Locally-curated datasets (data.gov.lk / CBSL / DCS) live as static files we
+ * commit + serve same-origin, so they honor the export basePath. Path sentinel
+ * is `local:{id}`, mirroring the `nuuuwan-group:` convention.
+ */
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+const LOCAL_MANIFEST_URL = `${PUBLIC_BASE_PATH}/data/local/manifest.json`
+const localDataUrl = (id: string): string => `${PUBLIC_BASE_PATH}/data/local/${encodeURIComponent(id)}.json`
+
 const cache = new Map<string, { data: unknown; expires: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 const CATALOG_TTL = 20 * 60 * 1000
@@ -374,7 +383,7 @@ const FALLBACK_DATASET_MANIFEST: DatasetManifestEntry[] = [
 
 let datasetManifestState: DatasetManifestEntry[] = [...FALLBACK_DATASET_MANIFEST]
 let catalogLastSyncedAt: number | null = null
-let catalogCounts = { total: FALLBACK_DATASET_MANIFEST.length, ldflk: 4, nuuuwan: 1 }
+let catalogCounts = { total: FALLBACK_DATASET_MANIFEST.length, ldflk: 4, nuuuwan: 1, local: 0 }
 
 interface LdfTreeEntry {
   path: string
@@ -735,6 +744,117 @@ function isLegacyNuuuwanPath(datasetPath: string): boolean {
   return datasetPath.startsWith('nuuuwan:')
 }
 
+// ---- Local (curated) datasets — static files under public/data/local/ ----
+
+function isLocalPath(datasetPath: string): boolean {
+  return datasetPath.startsWith('local:')
+}
+
+function getLocalDatasetId(datasetPath: string): string {
+  return datasetPath.replace('local:', '')
+}
+
+/** On-disk shape of public/data/local/{id}.json: location → year → metric → number. */
+interface LocalDataFile {
+  level: 'district' | 'province' | 'national'
+  unit: string
+  metrics?: string[]
+  valuesByLocation: Record<string, Record<string, Record<string, number>>>
+}
+
+/** Normalized in-memory local dataset (analogue of NuuuwanGroup). */
+interface LocalDataset {
+  id: string
+  level: 'district' | 'province' | 'national'
+  unit: string
+  metrics: string[]
+  years: number[]
+  valuesByLocation: Record<string, Record<number, Record<string, number>>>
+}
+
+let localCatalogCache: { entries: DatasetManifestEntry[]; expiresAt: number } | null = null
+
+/** Reads the static local manifest; failures degrade to [] so they never break the live catalog. */
+async function fetchLocalCatalog(options: FetchOptions = {}): Promise<DatasetManifestEntry[]> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  if (!forceRefresh && localCatalogCache && Date.now() < localCatalogCache.expiresAt) {
+    return localCatalogCache.entries
+  }
+  try {
+    const { data } = await axios.get<DatasetManifestEntry[]>(LOCAL_MANIFEST_URL)
+    if (!Array.isArray(data)) return []
+    const entries: DatasetManifestEntry[] = data.map((entry) => {
+      const years = Array.isArray(entry.years) ? entry.years : []
+      const metrics = entry.metrics && entry.metrics.length > 0 ? entry.metrics : ['Value']
+      return {
+        ...entry,
+        source: 'local' as const,
+        path: entry.path && entry.path.startsWith('local:') ? entry.path : `local:${entry.id}`,
+        years,
+        metrics,
+        defaultMetric: entry.defaultMetric ?? metrics[0],
+        hasGeo: entry.level !== 'national',
+        hasTime: entry.hasTime ?? years.length > 1,
+      }
+    })
+    localCatalogCache = { entries, expiresAt: Date.now() + CATALOG_TTL }
+    return entries
+  } catch {
+    return []
+  }
+}
+
+async function fetchLocalDataset(id: string, options: FetchOptions = {}): Promise<LocalDataset | null> {
+  const forceRefresh = Boolean(options.forceRefresh)
+  const cacheKey = `local-data-${id}`
+  const cached = getCached<LocalDataset>(cacheKey, forceRefresh)
+  if (cached) return cached
+
+  try {
+    const { data } = await axios.get<LocalDataFile>(localDataUrl(id))
+    if (!data || typeof data.valuesByLocation !== 'object') return null
+
+    const yearsSet = new Set<number>()
+    const valuesByLocation: Record<string, Record<number, Record<string, number>>> = {}
+    for (const [location, byYearRaw] of Object.entries(data.valuesByLocation)) {
+      const byYear: Record<number, Record<string, number>> = {}
+      for (const [yearKey, metricMap] of Object.entries(byYearRaw ?? {})) {
+        const year = Number(yearKey)
+        if (!Number.isFinite(year) || !metricMap || typeof metricMap !== 'object') continue
+        const cleaned: Record<string, number> = {}
+        for (const [metric, value] of Object.entries(metricMap)) {
+          const num = Number(value)
+          if (Number.isFinite(num)) cleaned[metric] = num
+        }
+        if (Object.keys(cleaned).length > 0) {
+          byYear[year] = cleaned
+          yearsSet.add(year)
+        }
+      }
+      if (Object.keys(byYear).length > 0) valuesByLocation[location] = byYear
+    }
+
+    const metrics = data.metrics && data.metrics.length > 0 ? data.metrics : ['Value']
+    const dataset: LocalDataset = {
+      id,
+      level: data.level,
+      unit: data.unit,
+      metrics,
+      years: sortYearsAscending(yearsSet),
+      valuesByLocation,
+    }
+    setCache(cacheKey, dataset, CATALOG_TTL)
+    return dataset
+  } catch {
+    return null
+  }
+}
+
+function pickLocalMetric(ds: LocalDataset, requested?: string): string {
+  if (requested && ds.metrics.includes(requested)) return requested
+  return ds.metrics[0] ?? 'Value'
+}
+
 interface NuuuwanTimeseries {
   source_id: string
   category: string
@@ -822,13 +942,15 @@ export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<D
   }
 
   try {
-    const [ldflkCatalog, nuuuwanGroups] = await Promise.all([
+    const [ldflkCatalog, nuuuwanGroups, localCatalog] = await Promise.all([
       fetchLdfCatalog(options),
       fetchNuuuwanGroups(options),
+      fetchLocalCatalog(options),
     ])
 
     const nuuuwanCatalog = buildNuuuwanCatalogEntries(nuuuwanGroups)
-    const manifest = [...ldflkCatalog, ...nuuuwanCatalog]
+    // Local (curated) entries first so they surface at the top of the catalog.
+    const manifest = [...localCatalog, ...ldflkCatalog, ...nuuuwanCatalog]
 
     datasetManifestState = manifest
     catalogLastSyncedAt = Date.now()
@@ -836,6 +958,7 @@ export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<D
       total: manifest.length,
       ldflk: ldflkCatalog.length,
       nuuuwan: nuuuwanCatalog.length,
+      local: localCatalog.length,
     }
 
     setCache('dataset-catalog', manifest, CATALOG_TTL)
@@ -857,7 +980,7 @@ function findManifestEntry(datasetId: string): DatasetManifestEntry | undefined 
 }
 
 function resolveDatasetPath(year: number, datasetPath: string): string {
-  if (isNuuuwanGroupPath(datasetPath) || isLegacyNuuuwanPath(datasetPath)) {
+  if (isNuuuwanGroupPath(datasetPath) || isLegacyNuuuwanPath(datasetPath) || isLocalPath(datasetPath)) {
     return datasetPath
   }
 
@@ -899,6 +1022,16 @@ function inferValueColumnIndex(columns: string[], geographicKeyword: 'district' 
 
 export async function fetchDataset(year: number, datasetPath: string, options: FetchOptions = {}): Promise<TabularData> {
   const forceRefresh = Boolean(options.forceRefresh)
+
+  if (isLocalPath(datasetPath)) {
+    const ds = await fetchLocalDataset(getLocalDatasetId(datasetPath), options)
+    if (!ds) return { columns: ['Location', 'Value'], rows: [] }
+    const columns = ['Location', ...ds.metrics]
+    const rows = Object.entries(ds.valuesByLocation)
+      .map(([location, byYear]) => [location, ...ds.metrics.map((m) => byYear[year]?.[m] ?? null)])
+      .filter((row) => row.slice(1).some((v) => v !== null))
+    return { columns, rows }
+  }
 
   if (isNuuuwanGroupPath(datasetPath)) {
     const key = getNuuuwanGroupKey(datasetPath)
@@ -944,6 +1077,25 @@ export async function fetchDistrictData(
   valueColumn?: string,
   options: FetchOptions = {},
 ): Promise<DistrictData[]> {
+  if (isLocalPath(datasetPath)) {
+    const ds = await fetchLocalDataset(getLocalDatasetId(datasetPath), options)
+    if (!ds || ds.level !== 'district') return []
+    const metric = pickLocalMetric(ds, valueColumn)
+    return Object.entries(ds.valuesByLocation)
+      .map(([name, byYear]) => {
+        const district = normalizeDistrict(name)
+        return {
+          name: district,
+          district,
+          value: Number(byYear[year]?.[metric] ?? 0),
+          originalName: name,
+          originalDistrict: name,
+          originalValue: byYear[year]?.[metric],
+        } as DistrictData
+      })
+      .filter((row) => row.value > 0)
+  }
+
   if (isNuuuwanGroupPath(datasetPath)) {
     const key = getNuuuwanGroupKey(datasetPath)
     const groups = await fetchNuuuwanGroups(options)
@@ -1003,6 +1155,25 @@ export async function fetchProvinceData(
   valueColumn?: string,
   options: FetchOptions = {},
 ): Promise<ProvinceData[]> {
+  if (isLocalPath(datasetPath)) {
+    const ds = await fetchLocalDataset(getLocalDatasetId(datasetPath), options)
+    if (!ds || ds.level !== 'province') return []
+    const metric = pickLocalMetric(ds, valueColumn)
+    return Object.entries(ds.valuesByLocation)
+      .map(([name, byYear]) => {
+        const province = normalizeProvince(name)
+        return {
+          name: province,
+          province,
+          value: Number(byYear[year]?.[metric] ?? 0),
+          originalName: name,
+          originalProvince: name,
+          originalValue: byYear[year]?.[metric],
+        } as ProvinceData
+      })
+      .filter((row) => row.value > 0)
+  }
+
   if (isNuuuwanGroupPath(datasetPath)) {
     const key = getNuuuwanGroupKey(datasetPath)
     const groups = await fetchNuuuwanGroups(options)
@@ -1070,6 +1241,18 @@ export async function fetchDatasetSeries(
     return []
   }
 
+  if (isLocalPath(dataset.path)) {
+    const ds = await fetchLocalDataset(getLocalDatasetId(dataset.path), options)
+    if (!ds) return []
+    const m = pickLocalMetric(ds, metric)
+    return Object.entries(ds.valuesByLocation).map(([name, byYear]) => ({
+      name,
+      values: Object.fromEntries(
+        Object.entries(byYear).map(([y, metricMap]) => [Number(y), Number(metricMap[m] ?? 0)]),
+      ),
+    }))
+  }
+
   if (isNuuuwanGroupPath(dataset.path)) {
     const key = getNuuuwanGroupKey(dataset.path)
     const groups = await fetchNuuuwanGroups(options)
@@ -1126,6 +1309,11 @@ export async function fetchDatasetSeries(
 }
 
 export async function inferDatasetLevel(year: number, datasetPath: string, options: FetchOptions = {}): Promise<'district' | 'province' | 'national'> {
+  if (isLocalPath(datasetPath)) {
+    const ds = await fetchLocalDataset(getLocalDatasetId(datasetPath), options)
+    return ds?.level ?? 'national'
+  }
+
   if (isNuuuwanGroupPath(datasetPath)) {
     const key = getNuuuwanGroupKey(datasetPath)
     const groups = await fetchNuuuwanGroups(options)
