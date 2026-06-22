@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 
 const LDFLK_PORTAL_HREF = 'https://ldflk.github.io/datasets/'
 const LDS_PORTAL_HREF = 'https://nuuuwan.github.io/lanka_data_search/'
+const GOV_PORTAL_HREF = 'https://data.gov.lk/'
 
 const PILL_WRAP =
   'inline-flex items-center justify-center rounded-md border border-[var(--outline)] bg-[var(--surface-variant)]/70 px-2 py-0.5'
@@ -22,7 +23,21 @@ const LDS_TEXT =
 const LINK_AFFORDANCE =
   'cursor-default no-underline transition-[background-color,opacity] duration-150 hover:cursor-pointer hover:bg-[var(--surface-variant)] hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface)]'
 
-export type CatalogUpstreamProvider = 'ldflk' | 'lds' | 'both'
+export type CatalogUpstreamProvider = 'ldflk' | 'lds' | 'both' | 'gov'
+
+export function GovPill() {
+  return (
+    <a
+      href={GOV_PORTAL_HREF}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${PILL_WRAP} ${LINK_AFFORDANCE} focus-visible:ring-[var(--primary)]`}
+      aria-label="Sri Lanka national open-data portal data.gov.lk (opens in new tab)"
+    >
+      <span className="text-[0.58rem] font-bold leading-none text-[var(--on-surface)]">GOV.LK</span>
+    </a>
+  )
+}
 
 export function LdflkPill() {
   return (
@@ -67,6 +82,9 @@ export function CatalogProviderPills({
   }
   if (provider === 'ldflk') {
     return <LdflkPill />
+  }
+  if (provider === 'gov') {
+    return <GovPill />
   }
   return <LdsPill />
 }

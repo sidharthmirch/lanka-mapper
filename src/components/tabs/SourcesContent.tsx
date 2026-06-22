@@ -16,6 +16,8 @@ const LDFLK_REPO = 'https://github.com/LDFLK/datasets'
 const LDS_PORTAL = 'https://nuuuwan.github.io/lanka_data_search/'
 const LDS_REPO = 'https://github.com/nuuuwan/lanka_data_timeseries'
 const LDS_PAPER = 'https://arxiv.org/abs/2510.04124'
+const GOV_PORTAL = 'https://data.gov.lk/'
+const CBSL_STATS = 'https://www.cbsl.gov.lk/en/statistics'
 
 interface UpstreamSource {
   name: string
@@ -30,6 +32,8 @@ interface UpstreamSource {
    */
   sourceIds?: string[]
   keywords?: string[]
+  /** Matches every curated `source: 'local'` dataset (data.gov.lk / CBSL). */
+  matchLocal?: boolean
 }
 
 const UPSTREAM_SOURCES: UpstreamSource[] = ([
@@ -85,6 +89,14 @@ const UPSTREAM_SOURCES: UpstreamSource[] = ([
     keywords: ['ministry', 'mission', 'foreign affairs', 'cadre', 'legal division', 'staff of', 'president ', 'prime minister', 'news from other'],
   },
   {
+    name: 'Sri Lanka Open Data — data.gov.lk',
+    description:
+      'National open-data portal (and CBSL ESS tables) — district & provincial census, labour, poverty, crime, and economic series curated into this catalog.',
+    provider: 'gov',
+    url: 'https://data.gov.lk/',
+    matchLocal: true,
+  },
+  {
     name: 'Sri Lanka Bureau of Foreign Employment',
     description:
       'Foreign employment registrations, departures, remittances, and complaints data.',
@@ -120,6 +132,7 @@ function hostLabel(url: string): string {
 /** Datasets in the catalog attributable to this agency. */
 function datasetsForAgency(manifest: DatasetManifestEntry[], agency: UpstreamSource): DatasetManifestEntry[] {
   return manifest.filter((d) => {
+    if (agency.matchLocal && d.source === 'local') return true
     if (d.secondarySource && agency.sourceIds?.includes(d.secondarySource.toLowerCase())) return true
     if (agency.keywords && d.source === 'ldflk') {
       const hay = `${d.name} ${d.description ?? ''} ${d.path}`.toLowerCase()
@@ -195,10 +208,12 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
         This terminal joins an open catalog from the{' '}
         <strong className="text-[var(--ink)]">Lanka Data Foundation (LDFLK)</strong> with live series from{' '}
         <strong className="text-[var(--ink)]">Lanka Data Search (LDS)</strong>, built on nuuuwan&apos;s timeseries
-        work. Expand any agency to see the catalog datasets it feeds — click one to open it.
+        work, plus a <strong className="text-[var(--ink)]">curated layer</strong> of district &amp; provincial tables
+        from <strong className="text-[var(--ink)]">data.gov.lk</strong> and the Central Bank. Expand any agency to see
+        the catalog datasets it feeds — click one to open it.
       </Typography>
 
-      <Box className="mt-6 grid gap-4 lg:grid-cols-2">
+      <Box className="mt-6 grid gap-4 lg:grid-cols-3">
         <PortalCard
           title="Lanka Data Foundation · LDFLK"
           blurb="Open datasets and documentation from the Lanka Data Foundation catalog."
@@ -214,6 +229,14 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
             { label: 'Open Lanka Data Search ↗', href: LDS_PORTAL },
             { label: 'nuuuwan / lanka_data_timeseries ↗', href: LDS_REPO },
             { label: 'Pipeline paper · arXiv:2510.04124 ↗', href: LDS_PAPER },
+          ]}
+        />
+        <PortalCard
+          title="Sri Lanka Open Data · GOV.LK"
+          blurb="District & provincial census, labour, poverty, and crime tables curated from the national open-data portal and CBSL. (sldpi.lk is not a live host; data.gov.lk is the national portal.)"
+          links={[
+            { label: 'Browse data.gov.lk ↗', href: GOV_PORTAL },
+            { label: 'CBSL statistics ↗', href: CBSL_STATS },
           ]}
         />
       </Box>
