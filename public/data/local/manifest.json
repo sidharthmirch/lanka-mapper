@@ -200,6 +200,10 @@
     "description": "Labour-force participation rate (%) and participant count by district, 2010–2014.",
     "secondarySource": "Dept. of Census & Statistics — Labour Force Survey",
     "unit": "%",
+    "metricUnits": {
+      "Rate": "%",
+      "Participants": "persons"
+    },
     "level": "district",
     "metrics": [
       "Rate",
@@ -232,6 +236,9 @@
     "description": "Average monthly household expenditure (Rs.) by district, 2013 — total, food & drink, non-food, and food ratio (%).",
     "secondarySource": "Dept. of Census & Statistics — HIES",
     "unit": "Rs./month",
+    "metricUnits": {
+      "Food ratio": "%"
+    },
     "level": "district",
     "metrics": [
       "Total",

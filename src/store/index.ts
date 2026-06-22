@@ -354,7 +354,7 @@ export const useAppStore = create<AppState>()(
               currentDatasetLevel: dataset.level,
               currentDatasetSource: dataset.source,
               currentDatasetSecondarySource: dataset.secondarySource ?? null,
-              currentDatasetUnit: dataset.unit,
+              currentDatasetUnit: dataset.metricUnits?.[selectedMetric] ?? dataset.unit,
               availableMetrics,
             })
           } else {
@@ -374,7 +374,7 @@ export const useAppStore = create<AppState>()(
               currentDatasetLevel: dataset.level,
               currentDatasetSource: dataset.source,
               currentDatasetSecondarySource: dataset.secondarySource ?? null,
-              currentDatasetUnit: dataset.unit,
+              currentDatasetUnit: dataset.metricUnits?.[selectedMetric] ?? dataset.unit,
               availableMetrics,
             })
           }

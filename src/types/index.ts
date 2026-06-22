@@ -34,7 +34,10 @@ export interface DatasetManifestEntry {
   description: string
   source: DatasetSource
   secondarySource?: string
+  /** Dataset-wide default unit (used for the default metric and any metric absent from `metricUnits`). */
   unit: string
+  /** Per-metric unit overrides for mixed-unit datasets (e.g. a Rate in % alongside a Participants count). */
+  metricUnits?: Record<string, string>
   level: 'district' | 'province' | 'national'
   path: string
   yearPaths?: Record<number, string>

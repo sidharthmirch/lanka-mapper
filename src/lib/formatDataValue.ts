@@ -22,6 +22,8 @@ const NON_DISPLAY_UNITS = new Set([
   '--',
   'unit',
   'units',
+  'number',
+  'numbers',
 ])
 
 /** Where the string is shown — affects K/M compression rules. */
@@ -97,20 +99,73 @@ type UnitScaleKind = 'percent' | 'thousand' | 'million' | 'billion' | 'generic'
  * because `\b` is a word boundary, so there is no need for the extra
  * start-anchored / prefix variants that lived here before.
  */
-const BILLION_RE = /\b(?:bn|billion)\.?\b/i
-const MILLION_RE = /\b(?:mn|million)\.?\b/i
+const BILLION_RE = /\b(?:bn|billions?)\.?\b/i
+const MILLION_RE = /\b(?:mn|millions?)\.?\b/i
 const THOUSAND_RE = /(?:['’`]\s*0{3}|\bthousand(?:s)?\.?\b)/i
-const SCALE_TOKEN_RE = /(?:\b(?:bn|billion|mn|million|thousand(?:s)?)\.?\b|['’`]\s*0{3})/gi
+const SCALE_TOKEN_RE = /(?:\b(?:bn|billions?|mn|millions?|thousand(?:s)?)\.?\b|['’`]\s*0{3})/gi
 
 export function getUnitScaleKind(unit: string): UnitScaleKind {
   const t = unit.trim()
   const lower = t.toLowerCase()
 
-  if (lower === '%' || lower === 'percent') return 'percent'
+  if (lower === '%' || lower === 'percent' || lower === 'percentage') return 'percent'
   if (BILLION_RE.test(t)) return 'billion'
   if (MILLION_RE.test(t)) return 'million'
   if (THOUSAND_RE.test(t)) return 'thousand'
   return 'generic'
+}
+
+/** Upstream `scale` strings that carry no real unit and should display bare. */
+const PLACEHOLDER_UNIT_RE =
+  /^(?:unit|units|number|numbers|none|null|value|values|n\.?\s*a\.?|tbd|unknown|unspecified|-|—|--)$/i
+
+/** Messy upstream scale strings → our canonical display vocabulary (non-magnitude units). */
+const KNOWN_UNIT_MAP: Record<string, string> = {
+  'metric tonne': 'tonnes',
+  'metric tonnes': 'tonnes',
+  tonne: 'tonnes',
+  tonnes: 'tonnes',
+  ton: 'tonnes',
+  kilometres: 'km',
+  kilometers: 'km',
+  km: 'km',
+  'giga watt hours': 'GWh',
+  gwh: 'GWh',
+  'mega watt': 'MW',
+  megawatt: 'MW',
+  mw: 'MW',
+  kwh: 'kWh',
+  teus: 'TEUs',
+  'ton kilometres': 'ton-km',
+  'ton kilometers': 'ton-km',
+  'sq. km.': 'sq km',
+  'sq km': 'sq km',
+  'sq.km.': 'sq km',
+  'index value': 'index',
+  'index points': 'index',
+  'index point': 'index',
+}
+
+/**
+ * Canonicalize the inconsistent upstream `scale` strings (e.g. nuuuwan/CBSL:
+ * "Million", "Millions", "Mn.", "Rs. million", "' 000", "Thousands", "Unit",
+ * "Number", "Percentage") into the small, consistent vocabulary the formatter
+ * understands. Placeholders collapse to '' (rendered with no unit); magnitudes
+ * fold into "Mn"/"Bn"/"'000" (currency-aware → "Rs. Mn"); recognized measures
+ * map to short forms ("Metric Tonne" → "tonnes"). Unknown-but-real units pass
+ * through whitespace-normalized so we never invent or drop information.
+ */
+export function normalizeUnitLabel(raw: string | null | undefined): string {
+  if (raw == null) return ''
+  const t = raw.trim().replace(/\s+/g, ' ')
+  if (t === '' || PLACEHOLDER_UNIT_RE.test(t)) return ''
+  const lower = t.toLowerCase()
+  if (t === '%' || lower === 'percent' || lower === 'percentage') return '%'
+  const hasCurrency = /\b(?:rs|lkr)\b/i.test(t)
+  if (/\b(?:bn|billion)\b\.?/i.test(t)) return hasCurrency ? 'Rs. Bn' : 'Bn'
+  if (/\b(?:mn|millions?)\b\.?/i.test(t)) return hasCurrency ? 'Rs. Mn' : 'Mn'
+  if (/['’`]\s*0{3}|\bthousands?\b/i.test(t)) return "'000"
+  return KNOWN_UNIT_MAP[lower] ?? t
 }
 
 function isEffectivelyInteger(value: number): boolean {
@@ -132,6 +187,7 @@ function formatCompactNumber(value: number, useGrouping = true, maxSig = 0): str
 
   const abs = Math.abs(v)
   const compactScales: Array<{ threshold: number; suffix: string }> = [
+    { threshold: 1_000_000_000_000, suffix: 'T' },
     { threshold: 1_000_000_000, suffix: 'B' },
     { threshold: 1_000_000, suffix: 'M' },
     { threshold: 1_000, suffix: 'K' },
@@ -204,36 +260,46 @@ function unitInputMultiplier(scale: UnitScaleKind): number {
   return 1
 }
 
-function normalizeScaledUnitLabel(unit: string): string {
-  const label = unit
+/** Currency tokens we render as a leading symbol (Rs 5.8B), never a trailing label. */
+const CURRENCY_TOKEN_RE = /\b(?:rs|lkr|usd|eur|gbp)\b\.?|[$£€]/i
+
+/**
+ * Split a unit into its currency symbol (if any) and the remaining label.
+ * "Rs. Mn" → { Rs, "Mn" }, "Rs./month" → { Rs, "/month" }, "rooms" → { null, "rooms" }.
+ */
+function detectCurrency(unit: string): { symbol: string | null; rest: string } {
+  const match = unit.match(CURRENCY_TOKEN_RE)
+  if (!match) return { symbol: null, rest: unit }
+  const raw = match[0].replace(/\.$/, '')
+  const symbol = /^[a-z]+$/i.test(raw) ? (raw.toLowerCase() === 'rs' ? 'Rs' : raw.toUpperCase()) : raw
+  const rest = unit
+    .replace(CURRENCY_TOKEN_RE, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.]+|[\s.]+$/g, '')
+    .trim()
+  return { symbol, rest }
+}
+
+/** Strip magnitude tokens (Mn, '000 …) and tidy parens — used once a scale is folded into K/M/B. */
+function stripScaleTokens(label: string): string {
+  return label
     .replace(SCALE_TOKEN_RE, '')
     .replace(/[()]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/[.,]+$/g, '')
     .trim()
-
-  if (/^rs\.?$/i.test(label)) return 'Rs'
-  if (/^lkr$/i.test(label)) return 'LKR'
-  return label
 }
 
-function isCurrencyLabel(label: string): boolean {
-  return /^(?:rs|lkr|usd|eur|gbp|\$|£|€)$/i.test(label)
-}
-
-function formatScaledUnitValue(
-  value: number,
-  unit: string,
-  scale: UnitScaleKind,
-  useGrouping = true,
-  maxSig = 0,
-): string {
-  const baseValue = value * unitInputMultiplier(scale)
-  const num = formatCompactNumber(baseValue, useGrouping, maxSig || 3)
-  const label = normalizeScaledUnitLabel(unit)
-  if (!label) return num
-  if (isCurrencyLabel(label)) return `${label}${NBSP}${num}`
-  return `${num}${NBSP}${label}`
+/** Compose symbol prefix + number + trailing label with consistent spacing. */
+function assembleUnit(symbol: string | null, num: string, suffix: string): string {
+  let head = num
+  if (symbol) {
+    const glue = /^[$£€]$/.test(symbol) ? '' : NBSP
+    head = `${symbol}${glue}${num}`
+  }
+  if (!suffix) return head
+  // Per-period qualifiers (/month, /capita) attach with no space; real labels get one.
+  return suffix.startsWith('/') ? `${head}${suffix}` : `${head}${NBSP}${suffix}`
 }
 
 /**
@@ -266,18 +332,23 @@ export function formatMetricValue(
     return formatPercentValue(value, useGrouping, maxSig)
   }
 
+  const { symbol, rest } = detectCurrency(u)
+
   // Magnitude-bearing units (Mn., Bn., '000 …): on dense map tooltips, normalize
-  // to the base value and compact it (5800 "Rs. Mn" → "Rs 5.8B"). Everywhere else
-  // (tables, sidebar, charts) preserve the authored scale faithfully — grouped
-  // digits plus the original unit, never a stacked K/M (5800 "Rs. Mn" → "5,800 Rs. Mn").
+  // to the base value and fold the scale into K/M/B (5800 "Rs. Mn" → "Rs 5.8B").
+  // Everywhere else (tables, sidebar, charts) preserve the authored scale word
+  // faithfully (80 "Rs. Mn" → "Rs 80 Mn"). A currency symbol always leads as a
+  // prefix in BOTH densities so money reads consistently across the app.
   if (scale === 'thousand' || scale === 'million' || scale === 'billion') {
     if (density === 'compact') {
-      return formatScaledUnitValue(value, u, scale, useGrouping, maxSig)
+      const base = value * unitInputMultiplier(scale)
+      const num = formatCompactNumber(base, useGrouping, maxSig || 3)
+      return assembleUnit(symbol, num, stripScaleTokens(rest))
     }
-    const preserved = formatPreferredNumeric(value, useGrouping, maxSig)
-    return `${preserved}${NBSP}${u}`
+    const num = formatPreferredNumeric(value, useGrouping, maxSig)
+    return assembleUnit(symbol, num, rest)
   }
 
   const num = formatGenericMagnitude(value, density, useGrouping, maxSig)
-  return `${num}${NBSP}${u}`
+  return assembleUnit(symbol, num, rest)
 }

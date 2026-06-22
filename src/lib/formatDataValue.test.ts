@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatMetricValue, getUnitScaleKind, isAdditiveUnit, isDisplayableUnit } from './formatDataValue'
+import {
+  formatMetricValue,
+  getUnitScaleKind,
+  isAdditiveUnit,
+  isDisplayableUnit,
+  normalizeUnitLabel,
+} from './formatDataValue'
 
 const NBSP = '\u00a0'
 
@@ -8,6 +14,9 @@ describe('getUnitScaleKind', () => {
     expect(getUnitScaleKind('Rs. Mn')).toBe('million')
     expect(getUnitScaleKind('Mn.')).toBe('million')
     expect(getUnitScaleKind('million LKR')).toBe('million')
+    // Plural form ("Millions") is emitted raw by some upstream sources.
+    expect(getUnitScaleKind('Millions')).toBe('million')
+    expect(formatMetricValue(5800, 'Millions', 'compact')).toBe('5.8B')
   })
 
   it('detects thousands-scale units', () => {
@@ -40,11 +49,24 @@ describe('formatMetricValue', () => {
 
   it('comfortable tables/sidebar preserve the authored scale faithfully', () => {
     expect(formatMetricValue(5800, 'Mn.', 'comfortable')).toBe(`5,800${NBSP}Mn.`)
-    expect(formatMetricValue(80, 'Rs. Mn', 'comfortable')).toBe(`80${NBSP}Rs. Mn`)
-    expect(formatMetricValue(1.25, 'Rs. Bn', 'comfortable')).toBe(`1.25${NBSP}Rs. Bn`)
     expect(formatMetricValue(12, 'billion people', 'comfortable')).toBe(`12${NBSP}billion people`)
     expect(formatMetricValue(1190.9, "’000", 'comfortable')).toBe(`1,190.9${NBSP}’000`)
     expect(formatMetricValue(42, 'thousand persons', 'comfortable')).toBe(`42${NBSP}thousand persons`)
+  })
+
+  it('renders currency as a leading symbol consistently across densities', () => {
+    // Scaled currency: scale word kept faithfully in tables, folded into K/M/B on the map.
+    expect(formatMetricValue(80, 'Rs. Mn', 'comfortable')).toBe(`Rs${NBSP}80${NBSP}Mn`)
+    expect(formatMetricValue(1.25, 'Rs. Bn', 'comfortable')).toBe(`Rs${NBSP}1.25${NBSP}Bn`)
+    expect(formatMetricValue(5800, 'Rs. Mn', 'compact')).toBe(`Rs${NBSP}5.8B`)
+    // Trillions: GDP totals (Rs. Mn) reach 1e12+ and should read as T, not thousands of B.
+    expect(formatMetricValue(2905160, 'Rs. Mn', 'compact')).toBe(`Rs${NBSP}2.9T`)
+    // Unscaled currency.
+    expect(formatMetricValue(5200000, 'Rs', 'comfortable')).toBe(`Rs${NBSP}5,200,000`)
+    expect(formatMetricValue(5200000, 'Rs', 'compact')).toBe(`Rs${NBSP}5.2M`)
+    // Per-period currency: the /qualifier attaches with no space.
+    expect(formatMetricValue(63030, 'Rs./month', 'comfortable')).toBe(`Rs${NBSP}63,030/month`)
+    expect(formatMetricValue(63030, 'Rs./month', 'compact')).toBe(`Rs${NBSP}63K/month`)
   })
 
   it('still uses K/M for generic units in compact mode', () => {
@@ -55,6 +77,9 @@ describe('formatMetricValue', () => {
   it('formats non-display units without suffix', () => {
     expect(formatMetricValue(5800, 'value', 'compact')).toBe('5.8K')
     expect(formatMetricValue(5800, null, 'comfortable')).toBe('5,800')
+    // Upstream placeholder scales ("Number"/"Numbers"/"Unit") render bare, not "4,957 Number".
+    expect(formatMetricValue(4957, 'Number', 'comfortable')).toBe('4,957')
+    expect(formatMetricValue(4957, 'Numbers', 'comfortable')).toBe('4,957')
   })
 
   it('formats percentages without double scaling', () => {
@@ -76,6 +101,38 @@ describe('isDisplayableUnit', () => {
   it('accepts real units', () => {
     expect(isDisplayableUnit('Rs. Mn')).toBe(true)
     expect(isDisplayableUnit('rooms')).toBe(true)
+  })
+})
+
+describe('normalizeUnitLabel', () => {
+  it('collapses placeholder scales to no unit', () => {
+    for (const raw of ['', ' ', 'Unit', 'Units', 'Number', 'Numbers', 'NULL', 'n.a.', null, undefined]) {
+      expect(normalizeUnitLabel(raw)).toBe('')
+    }
+  })
+
+  it('canonicalizes magnitudes, currency-aware', () => {
+    expect(normalizeUnitLabel('Million')).toBe('Mn')
+    expect(normalizeUnitLabel('Millions')).toBe('Mn')
+    expect(normalizeUnitLabel('Mn.')).toBe('Mn')
+    expect(normalizeUnitLabel('Rs. million')).toBe('Rs. Mn')
+    expect(normalizeUnitLabel('Billion')).toBe('Bn')
+    expect(normalizeUnitLabel('bn')).toBe('Bn')
+    expect(normalizeUnitLabel("' 000")).toBe("'000")
+    expect(normalizeUnitLabel('Thousands')).toBe("'000")
+  })
+
+  it('canonicalizes percent and known measures', () => {
+    expect(normalizeUnitLabel('Percentage')).toBe('%')
+    expect(normalizeUnitLabel('%')).toBe('%')
+    expect(normalizeUnitLabel('Metric Tonne')).toBe('tonnes')
+    expect(normalizeUnitLabel('Kilometres')).toBe('km')
+    expect(normalizeUnitLabel('Index Value')).toBe('index')
+  })
+
+  it('passes unknown-but-real units through, whitespace-normalized', () => {
+    expect(normalizeUnitLabel('kWh')).toBe('kWh')
+    expect(normalizeUnitLabel('TEUs')).toBe('TEUs')
   })
 })
 

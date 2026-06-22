@@ -5,6 +5,7 @@ import type {
   ProvinceData,
   DatasetManifestEntry,
 } from '@/types'
+import { normalizeUnitLabel } from '@/lib/formatDataValue'
 
 const BASE_URL = 'https://raw.githubusercontent.com/LDFLK/datasets/main/data/statistics'
 const LDFLK_GIT_TREE_URL = 'https://api.github.com/repos/LDFLK/datasets/git/trees/main?recursive=1'
@@ -106,6 +107,18 @@ const DISTRICT_NAME_MAP: Record<string, string> = {
   ratnapura: 'Ratnapura',
   rathnapura: 'Ratnapura',
   kegalle: 'Kegalle',
+  // data.gov.lk spelling typos seen across local datasets (population/literacy/road-accidents).
+  vavunia: 'Vavuniya',
+  kurunagala: 'Kurunegala',
+  polannaruwa: 'Polonnaruwa',
+  mullativ: 'Mullaitivu',
+  mulllativu: 'Mullaitivu',
+  // Crime dataset labels rows by police division, not district — canonicalize the
+  // multi-division headers so the choropleth join finds the parent district.
+  // (Intentionally NOT mapping "Chilaw": it is a genuine former census district in
+  //  population-by-district-census, distinct from Puttalam, with no modern polygon.)
+  'colombo mt. laviniya, nugegoda': 'Colombo',
+  'kegalle (kegalle, sithawakapura0': 'Kegalle',
 }
 
 export function normalizeDistrict(name: string): string {
@@ -496,7 +509,7 @@ async function fetchNuuuwanGroups(options: FetchOptions = {}): Promise<Record<st
         category,
         baseLabel: resolved.baseLabel,
         level: resolved.level,
-        unit: series.scale || 'value',
+        unit: normalizeUnitLabel(series.scale),
         years: new Set<number>(),
         valuesByLocation: new Map<string, Record<number, number>>(),
       })
@@ -551,7 +564,7 @@ async function fetchNuuuwanGroups(options: FetchOptions = {}): Promise<Record<st
       nationalGrouped.set(nationalKey, {
         sourceId,
         category,
-        unit: series.scale || 'value',
+        unit: normalizeUnitLabel(series.scale),
         years: new Set<number>(),
         valuesByLocation: new Map<string, Record<number, number>>(),
       })

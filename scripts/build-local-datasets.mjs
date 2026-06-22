@@ -60,9 +60,14 @@ const DISTRICT_SPELLING = {
   hambanthota: 'Hambantota',
   puttlam: 'Puttalam',
   mulativ: 'Mullaitivu',
+  mullativ: 'Mullaitivu',
   mullativu: 'Mullaitivu',
+  mulllativu: 'Mullaitivu',
   monaragala: 'Moneragala',
   kilinochchiya: 'Kilinochchi',
+  vavunia: 'Vavuniya',
+  kurunagala: 'Kurunegala',
+  polannaruwa: 'Polonnaruwa',
 }
 
 function cleanDistrict(name) {
@@ -263,7 +268,8 @@ datasets.push({
       const district = cleanDistrict(c[1] || '')
       if (!district || /total|all island|sri lanka/i.test(district)) continue
       const v = num(c[2])
-      if (v !== null && v > 0) valuesByLocation[district] = { 2012: { Value: v } }
+      // Source carries 8 decimal places; literacy % only needs 1 dp (matches sibling rate datasets).
+      if (v !== null && v > 0) valuesByLocation[district] = { 2012: { Value: Math.round(v * 10) / 10 } }
     }
     return { level: 'district', unit: '%', metrics: ['Value'], valuesByLocation }
   },
@@ -445,6 +451,7 @@ datasets.push({
     description: 'Labour-force participation rate (%) and participant count by district, 2010–2014.',
     secondarySource: 'Dept. of Census & Statistics — Labour Force Survey',
     unit: '%',
+    metricUnits: { Rate: '%', Participants: 'persons' },
     level: 'district',
     metrics: ['Rate', 'Participants'],
     citation: 'Department of Census and Statistics, Sri Lanka (via data.gov.lk)',
@@ -480,6 +487,7 @@ datasets.push({
     description: 'Average monthly household expenditure (Rs.) by district, 2013 — total, food & drink, non-food, and food ratio (%).',
     secondarySource: 'Dept. of Census & Statistics — HIES',
     unit: 'Rs./month',
+    metricUnits: { 'Food ratio': '%' },
     level: 'district',
     metrics: ['Total', 'Food and Drink', 'Non-food', 'Food ratio'],
     citation: 'Department of Census and Statistics, Sri Lanka (via data.gov.lk)',
