@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist, devtools } from 'zustand/middleware'
-import type { AppTab, ColorScale, DatasetSource, LatLngTuple, MapData, TabularData, ThemeMode, DatasetManifestEntry } from '@/types'
+import type { AppTab, ColorScale, DatasetSource, LatLngTuple, MapAdminLevel, MapData, TabularData, ThemeMode, DatasetManifestEntry } from '@/types'
 import {
   fetchDataset,
   fetchDatasetCatalog,
@@ -64,10 +64,18 @@ interface AppState {
   sidebarOpen: boolean
   showChoropleth: boolean
   showCentroids: boolean
+  /**
+   * Choropleth boundary granularity. `null` follows the dataset's native level;
+   * an explicit value overrides it (e.g. drilling a province dataset down to
+   * cities). Reset to `null` whenever the active dataset changes.
+   */
+  mapAdminLevel: MapAdminLevel | null
   /** Optional map data layers (off by default). */
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
+  /** River-basin watershed overlay (HydroBASINS). */
+  showBasins: boolean
   /** Live CEB generation-mix panel. */
   showCebLive: boolean
   currentTab: AppTab
@@ -94,9 +102,11 @@ interface AppState {
   setSelectedMetric: (metric: string) => void
   setShowChoropleth: (show: boolean) => void
   setShowCentroids: (show: boolean) => void
+  setMapAdminLevel: (level: MapAdminLevel | null) => void
   setShowRivers: (show: boolean) => void
   setShowPlants: (show: boolean) => void
   setShowGrid: (show: boolean) => void
+  setShowBasins: (show: boolean) => void
   setShowCebLive: (show: boolean) => void
   setCurrentTab: (tab: AppTab) => void
   setPlotYearRange: (range: [number, number]) => void
@@ -250,9 +260,11 @@ export const useAppStore = create<AppState>()(
         sidebarOpen: true,
         showChoropleth: true,
         showCentroids: false,
+        mapAdminLevel: null,
         showRivers: false,
         showPlants: false,
         showGrid: false,
+        showBasins: false,
         showCebLive: false,
         currentTab: 'map',
         colorScale: DEFAULT_COLOR_SCALE,
@@ -324,6 +336,12 @@ export const useAppStore = create<AppState>()(
           const selectedMetric = availableMetrics.includes(requestedMetric)
             ? requestedMetric
             : getDefaultMetricForYear(datasetId, supportedYear)
+
+          // Switching to a different dataset returns the choropleth to that
+          // dataset's native granularity; metric/year changes keep the drill level.
+          if (get().currentDataset !== datasetId) {
+            set({ mapAdminLevel: null })
+          }
 
           const forceRefresh = Boolean(options.forceRefresh)
           const dedupKey = buildLoadDedupKey(datasetId, supportedYear, selectedMetric, forceRefresh)
@@ -512,9 +530,11 @@ export const useAppStore = create<AppState>()(
 
         setShowChoropleth: (show) => set({ showChoropleth: show }),
         setShowCentroids: (show) => set({ showCentroids: show }),
+        setMapAdminLevel: (level) => set({ mapAdminLevel: level }),
         setShowRivers: (show) => set({ showRivers: show }),
         setShowPlants: (show) => set({ showPlants: show }),
         setShowGrid: (show) => set({ showGrid: show }),
+        setShowBasins: (show) => set({ showBasins: show }),
         setShowCebLive: (show) => set({ showCebLive: show }),
         setCurrentTab: (tab) => {
           set({ currentTab: tab })
@@ -683,6 +703,7 @@ export const useUIState = () => useAppStore((state) => ({
   sidebarOpen: state.sidebarOpen,
   showChoropleth: state.showChoropleth,
   showCentroids: state.showCentroids,
+  mapAdminLevel: state.mapAdminLevel,
   currentTab: state.currentTab,
   colorScale: state.colorScale,
   showTooltips: state.showTooltips,

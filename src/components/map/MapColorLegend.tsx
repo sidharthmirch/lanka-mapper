@@ -37,7 +37,7 @@ export default function MapColorLegend({
 
   return (
     <Box
-      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 shadow-[var(--shadow-lg)] backdrop-blur-md min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
+      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)] min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
       sx={{
         width: { xs: 'min(220px, calc(100vw - 24px))', lg: 232, xl: 256 },
         px: 1.5,

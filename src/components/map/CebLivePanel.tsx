@@ -62,7 +62,7 @@ export default function CebLivePanel() {
 
   return (
     <div
-      className="pointer-events-auto w-[min(264px,calc(100vw-1.5rem))] rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-2.5 shadow-[var(--shadow-lg)] backdrop-blur-md"
+      className="pointer-events-auto w-[min(264px,calc(100vw-1.5rem))] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-[var(--shadow-lg)]"
       style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
     >
       <div className="flex items-center justify-between gap-2">

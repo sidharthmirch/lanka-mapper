@@ -86,6 +86,13 @@ export interface ProvinceData {
 export type AppTab = 'map' | 'plots' | 'table' | 'sources'
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+/**
+ * Boundary granularity the choropleth paints at, independent of the dataset's
+ * native level. `city` = Local Government areas (Municipal/Urban Councils and
+ * Pradeshiya Sabhas). Finer-than-data levels inherit the parent region's value.
+ */
+export type MapAdminLevel = 'province' | 'district' | 'city'
+
 export interface ColorScale {
   min: number
   max: number

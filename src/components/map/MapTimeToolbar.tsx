@@ -161,7 +161,7 @@ export default function MapTimeToolbar({
   if (!hasMultipleYears) {
     return (
       <Box
-        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-2.5 shadow-[var(--shadow-md)] backdrop-blur-sm"
+        className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 shadow-[var(--shadow-md)]"
         style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
       >
         <Box className="flex items-center gap-3">
@@ -176,7 +176,7 @@ export default function MapTimeToolbar({
   return (
     <Box
       data-testid="map-time-toolbar"
-      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 px-3.5 py-3 shadow-[var(--shadow-lg)] backdrop-blur-md sm:px-4"
+      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3 shadow-[var(--shadow-lg)] sm:px-4"
       style={{ fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace' }}
     >
       {/* Control row */}

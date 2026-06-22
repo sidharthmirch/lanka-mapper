@@ -124,10 +124,10 @@ export default function TabBar({
 
   return (
     <div
-      className="w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-2.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]"
+      className="w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-1.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]"
     >
-      <div className="flex min-h-[42px] flex-col items-stretch gap-2">
-        <div className="flex items-center gap-2">
+      <div className="flex min-h-[40px] items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
         <Tabs
           value={currentTab}
           onChange={(_, nextValue: AppTab) => onTabChange(nextValue)}
@@ -206,7 +206,7 @@ export default function TabBar({
         </div>
 
         <Autocomplete
-          className="min-w-0 w-full"
+          className="order-first w-[min(380px,42vw)] min-w-0 shrink"
           size="small"
           options={searchOptions}
           value={undefined}
@@ -270,7 +270,7 @@ export default function TabBar({
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Search the catalog — type a dataset, agency, or topic…"
+              placeholder="Search datasets…"
               variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {

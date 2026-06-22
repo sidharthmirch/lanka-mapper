@@ -34,7 +34,7 @@ import {
   playbackFrameLinearYear,
   type PlaybackFrame,
 } from '@/lib/mapPlaybackSchedule'
-import type { AppTab, DatasetManifestEntry, MapData } from '@/types'
+import type { AppTab, DatasetManifestEntry, MapAdminLevel, MapData } from '@/types'
 import {
   applyRegionShadingGradientCssVars,
   getAccentUiPalette,
@@ -101,9 +101,11 @@ export default function HomePage() {
     error,
     showChoropleth,
     showCentroids,
+    mapAdminLevel,
     showRivers,
     showPlants,
     showGrid,
+    showBasins,
     showCebLive,
     selectedDistrict,
     selectedProvince,
@@ -138,9 +140,11 @@ export default function HomePage() {
       error: s.error,
       showChoropleth: s.showChoropleth,
       showCentroids: s.showCentroids,
+      mapAdminLevel: s.mapAdminLevel,
       showRivers: s.showRivers,
       showPlants: s.showPlants,
       showGrid: s.showGrid,
+      showBasins: s.showBasins,
       showCebLive: s.showCebLive,
       selectedDistrict: s.selectedDistrict,
       selectedProvince: s.selectedProvince,
@@ -182,9 +186,11 @@ export default function HomePage() {
   const selectDistrict = useAppStore((s) => s.selectDistrict)
   const selectProvince = useAppStore((s) => s.selectProvince)
   const setShowChoropleth = useAppStore((s) => s.setShowChoropleth)
+  const setMapAdminLevel = useAppStore((s) => s.setMapAdminLevel)
   const setShowRivers = useAppStore((s) => s.setShowRivers)
   const setShowPlants = useAppStore((s) => s.setShowPlants)
   const setShowGrid = useAppStore((s) => s.setShowGrid)
+  const setShowBasins = useAppStore((s) => s.setShowBasins)
   const setShowCebLive = useAppStore((s) => s.setShowCebLive)
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
@@ -212,6 +218,21 @@ export default function HomePage() {
     [currentDataset, datasetManifest],
   )
 
+  // Heat-level toggle: a dataset can be painted at its native granularity or any
+  // finer one (values inherit downward). A district dataset offers district +
+  // city; a province dataset offers province + district + city.
+  const availableAdminLevels = useMemo<MapAdminLevel[]>(() => {
+    if (currentDatasetLevel === 'province') return ['province', 'district', 'city']
+    if (currentDatasetLevel === 'district') return ['district', 'city']
+    return []
+  }, [currentDatasetLevel])
+
+  const renderLevel: MapAdminLevel = useMemo(() => {
+    const natural: MapAdminLevel = currentDatasetLevel === 'province' ? 'province' : 'district'
+    if (mapAdminLevel && availableAdminLevels.includes(mapAdminLevel)) return mapAdminLevel
+    return natural
+  }, [mapAdminLevel, availableAdminLevels, currentDatasetLevel])
+
   const rankingsData = useMemo((): MapData[] => {
     if (!data?.length) return []
     if (currentDatasetLevel !== 'province') return data
@@ -228,6 +249,17 @@ export default function HomePage() {
     }
     return Array.from(byProvince.values())
   }, [data, currentDatasetLevel])
+
+  // Headline stat for the status bar — the current leader region (point-to-point,
+  // so it tracks playback frames). Uses the deduped rankings set.
+  const headlineStat = useMemo(() => {
+    if (!rankingsData.length) return null
+    let top = rankingsData[0]
+    for (const row of rankingsData) {
+      if (row.value > top.value) top = row
+    }
+    return top.value > 0 ? { name: top.name, value: top.value } : null
+  }, [rankingsData])
 
   const handleRankingsSelect = useCallback(
     (name: string) => {
@@ -343,9 +375,19 @@ export default function HomePage() {
   useEffect(() => {
     if (typeof document === 'undefined') return
     const accent = getAccentUiPalette(accentPresetId, accentTone, isDarkMode)
-    document.documentElement.style.setProperty('--primary', accent.main)
-    document.documentElement.style.setProperty('--primary-dark', accent.dark)
-    document.documentElement.style.setProperty('--primary-light', accent.light)
+    const root = document.documentElement.style
+    root.setProperty('--primary', accent.main)
+    root.setProperty('--primary-dark', accent.dark)
+    root.setProperty('--primary-light', accent.light)
+    // Tie the semantic accent (playback rail, year readout, rankings, scrubber)
+    // to the chosen preset too — otherwise it stayed the static CSS terracotta
+    // while only `--primary` (tabs, etc.) followed the picker, desyncing them.
+    root.setProperty('--accent', accent.main)
+    root.setProperty('--accent-dark', accent.dark)
+    root.setProperty('--accent-light', accent.light)
+    // Soft accent surface = preset tinted into the current background, so the
+    // play button / speed-pill backgrounds track the accent in both registers.
+    root.setProperty('--accent-soft', `color-mix(in oklab, ${accent.main} 16%, var(--bg))`)
   }, [accentPresetId, accentTone, isDarkMode])
 
   useEffect(() => {
@@ -541,15 +583,11 @@ export default function HomePage() {
           <Box className="flex h-full w-full gap-3 px-3 pb-3 pt-3 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
               <TerminalStatusBar
-                link={error ? 'error' : loading || catalogLoading ? 'loading' : 'live'}
-                errorMessage={error}
                 datasetName={activeDataset?.name ?? null}
                 source={currentDatasetSource}
-                level={currentDatasetLevel}
+                topName={headlineStat?.name ?? null}
+                topValue={headlineStat?.value ?? null}
                 unit={currentDatasetUnit}
-                currentYear={playbackLinearYear ?? currentYear}
-                years={years}
-                currentTab={currentTab}
                 catalogTotal={catalogCounts.total}
                 lastSyncLabel={formatSyncTime(lastCatalogSync)}
                 catalogLoading={catalogLoading}
@@ -582,6 +620,7 @@ export default function HomePage() {
                   <SriLankaMap
                     data={data || []}
                     datasetLevel={currentDatasetLevel}
+                    renderLevel={renderLevel}
                     selectedDistrict={selectedDistrict}
                     selectedProvince={selectedProvince}
                     onDistrictSelect={selectDistrict}
@@ -593,6 +632,7 @@ export default function HomePage() {
                     showRivers={showRivers}
                     showPlants={showPlants}
                     showGrid={showGrid}
+                    showBasins={showBasins}
                     isDarkMode={isDarkMode}
                     unit={currentDatasetUnit}
                     sidebarOpen={sidebarOpen}
@@ -710,9 +750,13 @@ export default function HomePage() {
               currentDatasetUnit={currentDatasetUnit}
               currentTab={currentTab}
               showChoropleth={showChoropleth}
+              renderLevel={renderLevel}
+              availableAdminLevels={availableAdminLevels}
+              onAdminLevelChange={setMapAdminLevel}
               showRivers={showRivers}
               showPlants={showPlants}
               showGrid={showGrid}
+              showBasins={showBasins}
               showCebLive={showCebLive}
               colorScale={colorScale}
               datasetManifest={datasetManifest}
@@ -734,6 +778,7 @@ export default function HomePage() {
               onToggleRivers={setShowRivers}
               onTogglePlants={setShowPlants}
               onToggleGrid={setShowGrid}
+              onToggleBasins={setShowBasins}
               onToggleCebLive={setShowCebLive}
               darkMode={isDarkMode}
               onToggleDarkMode={() => setThemeMode(isDarkMode ? 'light' : 'dark')}

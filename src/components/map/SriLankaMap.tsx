@@ -5,16 +5,19 @@ import L from 'leaflet'
 import type { Layer, LeafletMouseEvent, PathOptions, StyleFunction } from 'leaflet'
 import type { MutableRefObject } from 'react'
 import { centerOfMass } from '@turf/turf'
-import type { ColorScale, MapData } from '@/types'
+import type { ColorScale, MapAdminLevel, MapData } from '@/types'
 import { applyGeoJsonStyle } from '@/lib/geoJsonStyleSync'
 import { formatMetricValue } from '@/lib/formatDataValue'
 import { DEFAULT_ACCENT_ID, getAccentPreset } from '@/lib/uiThemePresets'
+import { PROVINCE_TO_DISTRICTS } from '@/lib/mapInterpolation'
 import MapDataLayers from './MapDataLayers'
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus'
 
 interface SriLankaMapProps {
   data: MapData[]
   datasetLevel: 'district' | 'province' | 'national' | null
+  /** Boundary granularity to paint at — province / district / city (LG areas). */
+  renderLevel: MapAdminLevel
   selectedDistrict: string | null
   selectedProvince: string | null
   onDistrictSelect: (district: string) => void
@@ -27,6 +30,7 @@ interface SriLankaMapProps {
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
+  showBasins: boolean
   /** Warm dark theme variant for the basemap tiles and polygon strokes. */
   isDarkMode: boolean
   /** Dataset unit label (e.g. LKR, %) appended in tooltips. */
@@ -44,16 +48,15 @@ interface SriLankaMapProps {
   mapPlaybackActive?: boolean
 }
 
-interface DistrictProperties {
+/** Generic boundary feature; the property set depends on the level. */
+interface RegionProperties {
   name?: string
+  /** City (LG) features carry their parent district + province for inheritance. */
+  district?: string
+  province?: string
 }
 
-interface ProvinceProperties {
-  name?: string
-}
-
-type DistrictFeature = Feature<Geometry, DistrictProperties>
-type ProvinceFeature = Feature<Geometry, ProvinceProperties>
+type RegionFeature = Feature<Geometry, RegionProperties>
 
 const SRI_LANKA_CENTER: [number, number] = [7.8731, 80.7718]
 const DEFAULT_ZOOM = 8
@@ -98,7 +101,7 @@ function isPolygonGeometry(geometry: Geometry): geometry is Polygon | MultiPolyg
  * correctly and is not biased by dense coastline vertices the way a
  * naive vertex-average is. Returns [lat, lng] (Leaflet order).
  */
-function getCentroid(feature: Feature<Polygon | MultiPolygon, DistrictProperties>): [number, number] {
+function getCentroid(feature: Feature<Polygon | MultiPolygon, RegionProperties>): [number, number] {
   const point = centerOfMass(feature)
   const [lng, lat] = point.geometry.coordinates
   return [lat, lng]
@@ -114,9 +117,11 @@ interface DistrictPointDatum {
 interface HoverTooltipState {
   /** Marker hover vs polygon. */
   centroid: boolean
-  provinceName: string
-  /** Shown when district-level map, or centroid on provincial dataset. */
+  provinceName: string | null
   districtName: string | null
+  cityName: string | null
+  /** One level down: districts within a hovered province, or cities within a hovered district. */
+  breakdown: { label: string; items: string[] } | null
   formattedValue: string | null
   x: number
   y: number
@@ -124,7 +129,7 @@ interface HoverTooltipState {
 
 /** Reserved width/height for floating tooltip clamp vs map container. */
 const TOOLTIP_MAX_W = 230
-const TOOLTIP_MAX_H = 110
+const TOOLTIP_MAX_H = 150
 
 const DISTRICT_TO_PROVINCE: Record<string, string> = {
   Colombo: 'Western Province',
@@ -152,21 +157,6 @@ const DISTRICT_TO_PROVINCE: Record<string, string> = {
   Moneragala: 'Uva Province',
   Ratnapura: 'Sabaragamuwa Province',
   Kegalle: 'Sabaragamuwa Province',
-}
-
-/** District row: district choropleth always; provincial only when centroids on and pointer is on a centroid marker. */
-function showDistrictInTooltip(
-  datasetLevel: SriLankaMapProps['datasetLevel'],
-  showCentroids: boolean,
-  state: HoverTooltipState,
-): boolean {
-  if (state.centroid) {
-    if (datasetLevel === 'province') {
-      return showCentroids
-    }
-    return datasetLevel === 'district'
-  }
-  return datasetLevel === 'district'
 }
 
 /**
@@ -248,6 +238,7 @@ function MapEdgeReset({ geoJsonRef, lastHoveredRef, onClearTooltip }: MapEdgeRes
 export default function SriLankaMap({
   data,
   datasetLevel,
+  renderLevel,
   selectedDistrict,
   selectedProvince,
   onDistrictSelect,
@@ -259,6 +250,7 @@ export default function SriLankaMap({
   showRivers,
   showPlants,
   showGrid,
+  showBasins,
   isDarkMode,
   unit,
   sidebarOpen,
@@ -286,8 +278,14 @@ export default function SriLankaMap({
     const v = mapPlaybackActive ? Math.round(value) : value
     return formatMetricValue(v, unit, 'compact')
   }
-  const [districtGeojson, setDistrictGeojson] = useState<FeatureCollection<Geometry, DistrictProperties> | null>(null)
-  const [provinceGeojson, setProvinceGeojson] = useState<FeatureCollection<Geometry, ProvinceProperties> | null>(null)
+  // One persistent slot per boundary level. Loading into separate states (rather
+  // than overwriting a single one on every level switch) is what keeps the layer
+  // from briefly painting one level's geometry under another level's value lookup
+  // — react-leaflet does not re-read the `data` prop after mount, so the active
+  // slot must already hold the right geometry when the keyed layer remounts.
+  const [provinceGeojson, setProvinceGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
+  const [districtGeojson, setDistrictGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
+  const [cityGeojson, setCityGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null)
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
@@ -310,9 +308,7 @@ export default function SriLankaMap({
   const showChoroplethRef = useRef(showChoropleth)
   const formatTooltipValueRef = useRef<(value: number) => string | null>(() => null)
 
-  const isProvinceMap = datasetLevel === 'province'
-  /** District outlines: all non-provincial choropleth modes, or provincial + centroids overlay. */
-  const needDistrictBoundaries = !isProvinceMap || showCentroids
+  const isProvinceData = datasetLevel === 'province'
 
   useEffect(() => {
     if (!showTooltips) {
@@ -321,43 +317,49 @@ export default function SriLankaMap({
     }
   }, [showTooltips])
 
+  // Each boundary geojson loads the first time it's needed and is then kept.
+  // Province outlines: only when painting provinces.
   useEffect(() => {
-    if (!isProvinceMap) {
-      setProvinceGeojson(null)
-      return
-    }
+    if (renderLevel !== 'province' || provinceGeojson) return
     let cancelled = false
     void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-provinces.geojson`)
-      .then((res) => res.json() as Promise<FeatureCollection<Geometry, ProvinceProperties>>)
-      .then((collection) => {
-        if (!cancelled) setProvinceGeojson(collection)
-      })
-      .catch(() => {
-        if (!cancelled) setProvinceGeojson(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [isProvinceMap])
+      .then((res) => res.json() as Promise<FeatureCollection<Geometry, RegionProperties>>)
+      .then((collection) => { if (!cancelled) setProvinceGeojson(collection) })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [renderLevel, provinceGeojson])
 
+  // District outlines: when painting districts or for the centroid markers.
   useEffect(() => {
-    if (!needDistrictBoundaries) {
-      setDistrictGeojson(null)
-      return
-    }
+    if (!(renderLevel === 'district' || showCentroids) || districtGeojson) return
     let cancelled = false
     void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-districts.geojson`)
-      .then((res) => res.json() as Promise<FeatureCollection<Geometry, DistrictProperties>>)
-      .then((collection) => {
-        if (!cancelled) setDistrictGeojson(collection)
-      })
-      .catch(() => {
-        if (!cancelled) setDistrictGeojson(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [needDistrictBoundaries])
+      .then((res) => res.json() as Promise<FeatureCollection<Geometry, RegionProperties>>)
+      .then((collection) => { if (!cancelled) setDistrictGeojson(collection) })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [renderLevel, showCentroids, districtGeojson])
+
+  // City outlines: painting cities, or the district→cities hover breakdown
+  // (loaded once for any mappable level so district hover can list its towns).
+  useEffect(() => {
+    if (cityGeojson) return
+    let cancelled = false
+    void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-cities.geojson`)
+      .then((res) => res.json() as Promise<FeatureCollection<Geometry, RegionProperties>>)
+      .then((collection) => { if (!cancelled) setCityGeojson(collection) })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [renderLevel, cityGeojson])
+
+  const activeChoroplethGeojson = renderLevel === 'province'
+    ? provinceGeojson
+    : renderLevel === 'district'
+      ? districtGeojson
+      : cityGeojson
+  /** District outlines back the centroid markers; cities back the breakdown. */
+  const districtFeatureSource = districtGeojson
+  const cityFeatureSource = cityGeojson
 
   const districtDataMap = useMemo(() => {
     const map = new Map<string, number>()
@@ -369,7 +371,7 @@ export default function SriLankaMap({
 
   const provinceDataMap = useMemo(() => {
     const map = new Map<string, number>()
-    if (!isProvinceMap) return map
+    if (!isProvinceData) return map
     for (const row of data) {
       const provinceLabel =
         typeof row.originalName === 'string' && row.originalName
@@ -380,7 +382,24 @@ export default function SriLankaMap({
       }
     }
     return map
-  }, [data, isProvinceMap])
+  }, [data, isProvinceData])
+
+  /** district (lowercased) → constituent city names, for the district-hover breakdown. */
+  const citiesByDistrict = useMemo(() => {
+    const map = new Map<string, string[]>()
+    if (!cityFeatureSource) return map
+    for (const feature of cityFeatureSource.features) {
+      const district = feature.properties?.district
+      const name = feature.properties?.name
+      if (!district || !name) continue
+      const key = district.toLowerCase()
+      const list = map.get(key)
+      if (list) list.push(name)
+      else map.set(key, [name])
+    }
+    map.forEach((list) => list.sort((a, b) => a.localeCompare(b)))
+    return map
+  }, [cityFeatureSource])
 
   // Keep refs in sync so GeoJSON event handlers (attached once per layer
   // mount via onEachFeature) always read current values without needing
@@ -404,19 +423,30 @@ export default function SriLankaMap({
     formatTooltipValueRef.current = formatTooltipValue
   })
 
+  /** A feature's value: province lookup, or parent-district lookup for cities. */
+  const valueForProps = (props: RegionProperties | undefined): number => {
+    if (renderLevel === 'province') {
+      return provinceDataMapRef.current.get((props?.name ?? '').toLowerCase()) ?? 0
+    }
+    if (renderLevel === 'city') {
+      return districtDataMapRef.current.get((props?.district ?? '').toLowerCase()) ?? 0
+    }
+    return districtDataMapRef.current.get((props?.name ?? '').toLowerCase()) ?? 0
+  }
+
   const districtPoints = useMemo<DistrictPointDatum[]>(() => {
-    if (!districtGeojson || !showCentroids) {
+    if (!districtFeatureSource || !showCentroids) {
       return []
     }
 
-    return districtGeojson.features.flatMap((feature) => {
+    return districtFeatureSource.features.flatMap((feature) => {
       const { geometry } = feature
 
       if (!isPolygonGeometry(geometry)) {
         return []
       }
 
-      const polygonFeature: Feature<Polygon | MultiPolygon, DistrictProperties> = {
+      const polygonFeature: Feature<Polygon | MultiPolygon, RegionProperties> = {
         ...feature,
         geometry,
       }
@@ -435,27 +465,38 @@ export default function SriLankaMap({
         centroid: getCentroid(polygonFeature),
       }]
     })
-  }, [colorScale, districtDataMap, districtGeojson, showCentroids])
+  }, [colorScale, districtDataMap, districtFeatureSource, showCentroids])
 
-  const districtPolygonStyle = useMemo(() => {
+  const polygonStyle = useMemo(() => {
     const noDataFill = isDarkMode ? '#1b211d' : '#ece5d8'
     const noDataStroke = isDarkMode ? '#3a423a' : '#cfc5b2'
     const sepStroke = isDarkMode ? '#0f1311' : '#fdfbf6'
-    return (feature: DistrictFeature | undefined): PathOptions => {
+    const valueFor = (props: RegionProperties): number => {
+      if (renderLevel === 'province') return provinceDataMap.get((props.name ?? '').toLowerCase()) ?? 0
+      if (renderLevel === 'city') return districtDataMap.get((props.district ?? '').toLowerCase()) ?? 0
+      return districtDataMap.get((props.name ?? '').toLowerCase()) ?? 0
+    }
+    const isSelectedFor = (props: RegionProperties): boolean => {
+      if (renderLevel === 'province') return selectedProvince?.toLowerCase() === (props.name ?? '').toLowerCase()
+      if (renderLevel === 'city') return Boolean(selectedDistrict) && selectedDistrict?.toLowerCase() === (props.district ?? '').toLowerCase()
+      return selectedDistrict?.toLowerCase() === (props.name ?? '').toLowerCase()
+    }
+    // Cities are small and numerous — a hairline keeps them legible without choking the fill.
+    const baseWeight = renderLevel === 'city' ? 0.6 : 1
+    return (feature: RegionFeature | undefined): PathOptions => {
       if (!feature) {
-        return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
+        return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: baseWeight }
       }
-
-      const districtName = feature.properties?.name ?? ''
-      const value = districtDataMap.get(districtName.toLowerCase()) ?? 0
-      const isSelected = selectedDistrict?.toLowerCase() === districtName.toLowerCase()
+      const props = feature.properties ?? {}
+      const value = valueFor(props)
+      const isSelected = isSelectedFor(props)
 
       if (!showChoropleth) {
         return {
           fillColor: 'transparent',
           fillOpacity: 0,
           color: isSelected ? accentColor : noDataStroke,
-          weight: isSelected ? 2 : 1,
+          weight: isSelected ? 2 : baseWeight,
           opacity: isSelected ? 0.95 : 0.7,
         }
       }
@@ -464,56 +505,54 @@ export default function SriLankaMap({
         fillColor: value > 0 ? getColorForValue(value, rampScale) : noDataFill,
         fillOpacity: isSelected ? 0.92 : 0.82,
         color: isSelected ? accentColor : sepStroke,
-        weight: isSelected ? 2.5 : 1,
+        weight: isSelected ? 2.5 : baseWeight,
       }
     }
-  }, [accentColor, rampScale, districtDataMap, isDarkMode, selectedDistrict, showChoropleth])
-
-  const provincePolygonStyle = useMemo(() => {
-    const noDataFill = isDarkMode ? '#1b211d' : '#ece5d8'
-    const noDataStroke = isDarkMode ? '#3a423a' : '#cfc5b2'
-    const sepStroke = isDarkMode ? '#0f1311' : '#fdfbf6'
-    return (feature: ProvinceFeature | undefined): PathOptions => {
-      if (!feature) {
-        return { fillColor: noDataFill, fillOpacity: 0.5, color: noDataStroke, weight: 1 }
-      }
-
-      const provinceName = feature.properties?.name ?? ''
-      const value = provinceDataMap.get(provinceName.toLowerCase()) ?? 0
-      const isSelected = selectedProvince?.toLowerCase() === provinceName.toLowerCase()
-
-      if (!showChoropleth) {
-        return {
-          fillColor: 'transparent',
-          fillOpacity: 0,
-          color: isSelected ? accentColor : noDataStroke,
-          weight: isSelected ? 2 : 1,
-          opacity: isSelected ? 0.95 : 0.7,
-        }
-      }
-
-      return {
-        fillColor: value > 0 ? getColorForValue(value, rampScale) : noDataFill,
-        fillOpacity: isSelected ? 0.92 : 0.82,
-        color: isSelected ? accentColor : sepStroke,
-        weight: isSelected ? 2.5 : 1,
-      }
-    }
-  }, [accentColor, rampScale, provinceDataMap, isDarkMode, selectedProvince, showChoropleth])
+  }, [accentColor, rampScale, districtDataMap, provinceDataMap, renderLevel, isDarkMode, selectedDistrict, selectedProvince, showChoropleth])
 
   const clearTooltip = () => {
     centroidHoverRef.current = null
     setHoverTooltip(null)
   }
 
-  const onEachDistrictFeature = (feature: DistrictFeature, layer: Layer) => {
-    const districtName = feature.properties?.name ?? 'Unknown'
-    const provinceName = DISTRICT_TO_PROVINCE[districtName] ?? 'Unknown Province'
+  /** Province / district / city labels for a feature at the active level. */
+  const labelsForProps = (props: RegionProperties): { province: string | null; district: string | null; city: string | null } => {
+    if (renderLevel === 'province') {
+      return { province: props.name ?? null, district: null, city: null }
+    }
+    if (renderLevel === 'city') {
+      return { province: props.province ?? null, district: props.district ?? null, city: props.name ?? null }
+    }
+    const district = props.name ?? null
+    return { province: district ? DISTRICT_TO_PROVINCE[district] ?? null : null, district, city: null }
+  }
+
+  const clampPoint = (event: LeafletMouseEvent): { x: number; y: number } => {
+    const mapSize = event.target._map?.getSize()
+    return {
+      x: mapSize ? Math.min(event.containerPoint.x, Math.max(0, mapSize.x - TOOLTIP_MAX_W)) : event.containerPoint.x,
+      y: mapSize ? Math.min(event.containerPoint.y, Math.max(0, mapSize.y - TOOLTIP_MAX_H)) : event.containerPoint.y,
+    }
+  }
+
+  const onEachRegionFeature = (feature: RegionFeature, layer: Layer) => {
+    const props = feature.properties ?? {}
+    const labels = labelsForProps(props)
+    /** Stable identity for this feature, so mouseout only clears its own tooltip. */
+    const featureKey = `${labels.province ?? ''}|${labels.district ?? ''}|${labels.city ?? ''}`
+
+    const selectRegion = () => {
+      if (renderLevel === 'province') {
+        if (labels.province) onProvinceSelect(labels.province)
+      } else if (labels.district) {
+        onDistrictSelect(labels.district)
+      }
+    }
 
     layer.on({
       click: (e: LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(e)
-        onDistrictSelect(districtName)
+        selectRegion()
       },
       mouseover: (event: LeafletMouseEvent) => {
         const target = event.target as L.Path
@@ -528,48 +567,44 @@ export default function SriLankaMap({
         lastHoveredRef.current = target
 
         const currentAccent = accentColorRef.current
-        const currentShowChoropleth = showChoroplethRef.current
         target.setStyle({
           weight: 2.5,
           color: currentAccent,
-          ...accentHoverStyle(currentAccent, currentShowChoropleth),
+          ...accentHoverStyle(currentAccent, showChoroplethRef.current),
         })
         target.bringToFront()
 
         if (showTooltipsRef.current && !centroidHoverRef.current) {
-          const value = districtDataMapRef.current.get(districtName.toLowerCase()) ?? 0
-          const mapSize = event.target._map?.getSize()
-          const nextX = mapSize ? Math.min(event.containerPoint.x, Math.max(0, mapSize.x - TOOLTIP_MAX_W)) : event.containerPoint.x
-          const nextY = mapSize ? Math.min(event.containerPoint.y, Math.max(0, mapSize.y - TOOLTIP_MAX_H)) : event.containerPoint.y
+          const value = valueForProps(props)
+          const { x, y } = clampPoint(event)
+          // One level down: a province lists its districts; a district lists its cities.
+          let breakdown: { label: string; items: string[] } | null = null
+          if (renderLevel === 'province' && labels.province) {
+            const districts = PROVINCE_TO_DISTRICTS[labels.province] ?? []
+            if (districts.length) breakdown = { label: 'Districts', items: districts }
+          } else if (renderLevel === 'district' && labels.district) {
+            const cities = citiesByDistrict.get(labels.district.toLowerCase()) ?? []
+            if (cities.length) breakdown = { label: 'Cities', items: cities }
+          }
           setHoverTooltip({
             centroid: false,
-            provinceName,
-            districtName,
+            provinceName: labels.province,
+            districtName: labels.district,
+            cityName: labels.city,
+            breakdown,
             formattedValue: formatTooltipValueRef.current(value),
-            x: nextX,
-            y: nextY,
+            x,
+            y,
           })
         }
       },
       mousemove: (event: LeafletMouseEvent) => {
-        if (!showTooltipsRef.current) {
-          return
-        }
-
+        if (!showTooltipsRef.current) return
         setHoverTooltip((prev) => {
-          if (!prev || prev.districtName !== districtName || prev.centroid) {
-            return prev
-          }
-
-          return {
-            ...prev,
-            x: event.target._map?.getSize()
-              ? Math.min(event.containerPoint.x, Math.max(0, event.target._map.getSize().x - TOOLTIP_MAX_W))
-              : event.containerPoint.x,
-            y: event.target._map?.getSize()
-              ? Math.min(event.containerPoint.y, Math.max(0, event.target._map.getSize().y - TOOLTIP_MAX_H))
-              : event.containerPoint.y,
-          }
+          if (!prev || prev.centroid) return prev
+          const prevKey = `${prev.provinceName ?? ''}|${prev.districtName ?? ''}|${prev.cityName ?? ''}`
+          if (prevKey !== featureKey) return prev
+          return { ...prev, ...clampPoint(event) }
         })
       },
       mouseout: (event: LeafletMouseEvent) => {
@@ -580,107 +615,29 @@ export default function SriLankaMap({
         if (lastHoveredRef.current === target) {
           lastHoveredRef.current = null
         }
-        setHoverTooltip((prev) => (prev && !prev.centroid && prev.districtName === districtName ? null : prev))
-      },
-    })
-  }
-
-  const onEachProvinceFeature = (feature: ProvinceFeature, layer: Layer) => {
-    const provinceName = feature.properties?.name ?? 'Unknown'
-
-    layer.on({
-      click: (e: LeafletMouseEvent) => {
-        L.DomEvent.stopPropagation(e)
-        onProvinceSelect(provinceName)
-      },
-      mouseover: (event: LeafletMouseEvent) => {
-        const target = event.target as L.Path
-
-        if (lastHoveredRef.current && lastHoveredRef.current !== target && geoJsonRef.current) {
-          try {
-            geoJsonRef.current.resetStyle(lastHoveredRef.current as L.Path)
-          } catch {
-            // safe to ignore if layer was removed
-          }
-        }
-        lastHoveredRef.current = target
-
-        const currentAccent = accentColorRef.current
-        const currentShowChoropleth = showChoroplethRef.current
-        target.setStyle({
-          weight: 2.5,
-          color: currentAccent,
-          ...accentHoverStyle(currentAccent, currentShowChoropleth),
-        })
-        target.bringToFront()
-
-        if (showTooltipsRef.current && !centroidHoverRef.current) {
-          const value = provinceDataMapRef.current.get(provinceName.toLowerCase()) ?? 0
-          const mapSize = event.target._map?.getSize()
-          const nextX = mapSize ? Math.min(event.containerPoint.x, Math.max(0, mapSize.x - TOOLTIP_MAX_W)) : event.containerPoint.x
-          const nextY = mapSize ? Math.min(event.containerPoint.y, Math.max(0, mapSize.y - TOOLTIP_MAX_H)) : event.containerPoint.y
-          setHoverTooltip({
-            centroid: false,
-            provinceName,
-            districtName: null,
-            formattedValue: formatTooltipValueRef.current(value),
-            x: nextX,
-            y: nextY,
-          })
-        }
-      },
-      mousemove: (event: LeafletMouseEvent) => {
-        if (!showTooltipsRef.current) {
-          return
-        }
-
         setHoverTooltip((prev) => {
-          if (!prev || prev.provinceName !== provinceName || prev.centroid) {
-            return prev
-          }
-
-          return {
-            ...prev,
-            x: event.target._map?.getSize()
-              ? Math.min(event.containerPoint.x, Math.max(0, event.target._map.getSize().x - TOOLTIP_MAX_W))
-              : event.containerPoint.x,
-            y: event.target._map?.getSize()
-              ? Math.min(event.containerPoint.y, Math.max(0, event.target._map.getSize().y - TOOLTIP_MAX_H))
-              : event.containerPoint.y,
-          }
+          if (!prev || prev.centroid) return prev
+          const prevKey = `${prev.provinceName ?? ''}|${prev.districtName ?? ''}|${prev.cityName ?? ''}`
+          return prevKey === featureKey ? null : prev
         })
-      },
-      mouseout: (event: LeafletMouseEvent) => {
-        const target = event.target as L.Path
-        if (geoJsonRef.current) {
-          geoJsonRef.current.resetStyle(target)
-        }
-        if (lastHoveredRef.current === target) {
-          lastHoveredRef.current = null
-        }
-        setHoverTooltip((prev) => (prev && !prev.centroid && prev.provinceName === provinceName && prev.districtName === null ? null : prev))
       },
     })
   }
-
-  const activeChoroplethGeojson = isProvinceMap ? provinceGeojson : districtGeojson
-  const activeStyle = isProvinceMap ? provincePolygonStyle : districtPolygonStyle
-  const activeOnEach = isProvinceMap ? onEachProvinceFeature : onEachDistrictFeature
 
   /**
-   * Only remount the GeoJSON layer when the layer *shape* changes (province
-   * vs district, choropleth/tooltips on/off, base theme). Per-frame value
-   * updates during playback flow through `setStyle()` in the effect below,
-   * avoiding a full teardown + recreate (with all event handlers) every ~80ms.
+   * Only remount the GeoJSON layer when the layer *shape* changes (paint level,
+   * choropleth/tooltips on/off, base theme). Per-frame value updates during
+   * playback flow through `setStyle()` in the effect below, avoiding a full
+   * teardown + recreate (with all event handlers) every ~80ms.
    */
-  const geoJsonKey = `${isProvinceMap ? 'prov' : 'dist'}-${showTooltips}-${showChoropleth}-${isDarkMode ? 'dark' : 'light'}`
+  const geoJsonKey = `${renderLevel}-${showTooltips}-${showChoropleth}-${isDarkMode ? 'dark' : 'light'}`
 
   useEffect(() => {
     const layer = geoJsonRef.current
     if (!layer) return
-    const styleFn = activeStyle as unknown as StyleFunction
+    const styleFn = polygonStyle as unknown as StyleFunction
     applyGeoJsonStyle(layer, styleFn)
-  }, [activeStyle, data, colorScale, accentColor, selectedDistrict, selectedProvince])
+  }, [polygonStyle, data, colorScale, accentColor, selectedDistrict, selectedProvince])
 
   return (
     <div className="relative h-full w-full">
@@ -726,8 +683,8 @@ export default function SriLankaMap({
           <GeoJSON
             key={geoJsonKey}
             data={activeChoroplethGeojson}
-            style={activeStyle as (f: Feature<Geometry, Record<string, unknown>> | undefined) => PathOptions}
-            onEachFeature={activeOnEach as (f: Feature<Geometry, Record<string, unknown>>, l: Layer) => void}
+            style={polygonStyle as (f: Feature<Geometry, Record<string, unknown>> | undefined) => PathOptions}
+            onEachFeature={onEachRegionFeature as (f: Feature<Geometry, Record<string, unknown>>, l: Layer) => void}
             ref={(ref) => { geoJsonRef.current = ref }}
           />
         )}
@@ -742,12 +699,13 @@ export default function SriLankaMap({
           showRivers={showRivers}
           showPlants={showPlants}
           showGrid={showGrid}
+          showBasins={showBasins}
           isDark={isDarkMode}
         />
 
         {showCentroids && districtPoints.map(({ centroid, districtName, normalized, value }) => {
           const provinceName = DISTRICT_TO_PROVINCE[districtName] ?? 'Unknown Province'
-          const isSelected = isProvinceMap
+          const isSelected = isProvinceData
             ? selectedProvince?.toLowerCase() === provinceName.toLowerCase()
             : selectedDistrict?.toLowerCase() === districtName.toLowerCase()
 
@@ -766,7 +724,7 @@ export default function SriLankaMap({
               }}
               eventHandlers={{
                 click: () => {
-                  if (isProvinceMap) {
+                  if (isProvinceData) {
                     onProvinceSelect(provinceName)
                   } else {
                     onDistrictSelect(districtName)
@@ -785,6 +743,8 @@ export default function SriLankaMap({
                     centroid: true,
                     provinceName,
                     districtName,
+                    cityName: null,
+                    breakdown: null,
                     formattedValue: formatTooltipValue(valueAtPoint),
                     x: nextX,
                     y: nextY,
@@ -822,7 +782,7 @@ export default function SriLankaMap({
           onClick={() => mapInstance.setView(SRI_LANKA_CENTER, DEFAULT_ZOOM, { animate: true })}
           aria-label="Recenter map on Sri Lanka"
           title="Recenter"
-          className="absolute right-3 top-3 z-[800] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)]/95 text-[var(--ink-2)] shadow-[var(--shadow-md)] backdrop-blur transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] lg:top-auto lg:bottom-20"
+          className="absolute right-3 top-3 z-[800] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)] text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] lg:top-auto lg:bottom-20"
         >
           <FilterCenterFocusIcon sx={{ fontSize: 18 }} />
         </button>
@@ -847,9 +807,19 @@ export default function SriLankaMap({
               Centroid
             </div>
           )}
-          <div className="term-label">Province</div>
-          <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.provinceName}</div>
-          {showDistrictInTooltip(datasetLevel, showCentroids, hoverTooltip) && hoverTooltip.districtName && (
+          {hoverTooltip.cityName && (
+            <>
+              <div className="term-label">City</div>
+              <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.cityName}</div>
+            </>
+          )}
+          {hoverTooltip.provinceName && (
+            <>
+              <div className={`term-label ${hoverTooltip.cityName ? 'mt-1.5' : ''}`}>Province</div>
+              <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.provinceName}</div>
+            </>
+          )}
+          {hoverTooltip.districtName && (
             <>
               <div className="term-label mt-1.5">District</div>
               <div className="mt-0.5 text-[13px] font-semibold break-words line-clamp-2">{hoverTooltip.districtName}</div>
@@ -862,6 +832,14 @@ export default function SriLankaMap({
             </>
           ) : (
             <div className="mt-1 text-[12px] italic text-[var(--ink-3)]">No data available</div>
+          )}
+          {hoverTooltip.breakdown && hoverTooltip.breakdown.items.length > 0 && (
+            <>
+              <div className="term-label mt-1.5">{hoverTooltip.breakdown.label} ({hoverTooltip.breakdown.items.length})</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-[var(--ink-2)] line-clamp-3">
+                {hoverTooltip.breakdown.items.slice(0, 14).join(', ')}{hoverTooltip.breakdown.items.length > 14 ? '…' : ''}
+              </div>
+            </>
           )}
         </div>
       )}

@@ -29,7 +29,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import SyncIcon from '@mui/icons-material/Sync'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import type { AppTab, ColorScale, DatasetManifestEntry, DatasetSource, MapData } from '@/types'
+import type { AppTab, ColorScale, DatasetManifestEntry, DatasetSource, MapAdminLevel, MapData } from '@/types'
 import { formatMetricValue, isDisplayableUnit, isAdditiveUnit } from '@/lib/formatDataValue'
 import { sourceShortLabel, sourceFullLabel } from '@/lib/sourceLabels'
 import { useAppStore } from '@/store'
@@ -55,6 +55,12 @@ interface SidebarProps {
   currentDatasetUnit: string | null
   currentTab: AppTab
   showChoropleth: boolean
+  showBasins: boolean
+  /** Active choropleth boundary granularity. */
+  renderLevel: MapAdminLevel
+  /** Levels offered for the current dataset (native + finer). */
+  availableAdminLevels: MapAdminLevel[]
+  onAdminLevelChange: (level: MapAdminLevel) => void
   showRivers: boolean
   showPlants: boolean
   showGrid: boolean
@@ -83,6 +89,7 @@ interface SidebarProps {
   onToggleRivers: (show: boolean) => void
   onTogglePlants: (show: boolean) => void
   onToggleGrid: (show: boolean) => void
+  onToggleBasins: (show: boolean) => void
   onToggleCebLive: (show: boolean) => void
   onViewRawData: () => void
   /** Light/dark theme toggle (warm-neutral light ↔ warm dark). */
@@ -181,6 +188,10 @@ export default function Sidebar({
   currentDatasetUnit,
   currentTab,
   showChoropleth,
+  showBasins,
+  renderLevel,
+  availableAdminLevels,
+  onAdminLevelChange,
   showRivers,
   showPlants,
   showGrid,
@@ -205,6 +216,7 @@ export default function Sidebar({
   onToggleRivers,
   onTogglePlants,
   onToggleGrid,
+  onToggleBasins,
   onToggleCebLive,
   onViewRawData,
   darkMode,
@@ -578,6 +590,42 @@ export default function Sidebar({
                 <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3">
                   <span className="term-label">Layers</span>
 
+                  {availableAdminLevels.length > 1 && (
+                    <Box className="mt-2">
+                      <Box className="mb-1.5 flex items-center gap-1.5 px-0.5">
+                        <span className="term-label">Heat level</span>
+                        <Tooltip title="Boundary granularity the heatmap paints at. Finer levels inherit each region's value from its parent (cities = Municipal / Urban Councils & Pradeshiya Sabhas).">
+                          <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                        </Tooltip>
+                      </Box>
+                      <Box
+                        role="group"
+                        aria-label="Heatmap boundary level"
+                        className="flex gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] p-0.5"
+                      >
+                        {availableAdminLevels.map((level) => {
+                          const active = renderLevel === level
+                          return (
+                            <ButtonBase
+                              key={level}
+                              type="button"
+                              onClick={() => onAdminLevelChange(level)}
+                              aria-pressed={active}
+                              className="flex-1 rounded-[5px] px-1 py-1 text-[11px] font-semibold capitalize transition-colors"
+                              sx={{
+                                color: active ? 'var(--on-accent, #fff)' : 'var(--ink-2)',
+                                backgroundColor: active ? 'var(--accent)' : 'transparent',
+                                '&:hover': { backgroundColor: active ? 'var(--accent)' : 'var(--surface-2)' },
+                              }}
+                            >
+                              {level === 'city' ? 'Cities' : level}
+                            </ButtonBase>
+                          )
+                        })}
+                      </Box>
+                    </Box>
+                  )}
+
                   <Box className="mt-2 flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
                     <Box className="flex min-w-0 items-center gap-2">
                       <span className="h-3 w-4 shrink-0 rounded-[3px] border border-[var(--border-2)]" style={{ background: REGION_SHADING_GRADIENT_CSS }} />
@@ -595,6 +643,17 @@ export default function Sidebar({
                       <Typography variant="caption" className="font-semibold opacity-85">Rivers</Typography>
                     </Box>
                     <Switch size="small" checked={showRivers} onChange={(_, checked) => onToggleRivers(checked)} inputProps={{ 'aria-label': 'Rivers' }} />
+                  </Box>
+
+                  <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex items-center gap-2">
+                      <span className="h-3 w-4 shrink-0 rounded-[3px] border border-dashed" style={{ borderColor: darkMode ? '#6fc2b4' : '#2c7a6e' }} />
+                      <Typography variant="caption" className="font-semibold opacity-85">River basins</Typography>
+                      <Tooltip title="Watershed boundaries (HydroSHEDS HydroBASINS), named by their dominant river. Hover a basin for its name and area.">
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                      </Tooltip>
+                    </Box>
+                    <Switch size="small" checked={showBasins} onChange={(_, checked) => onToggleBasins(checked)} inputProps={{ 'aria-label': 'River basins' }} />
                   </Box>
 
                   <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">

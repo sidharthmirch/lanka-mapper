@@ -149,7 +149,7 @@ export default function RankingsChart({
     <Box
       ref={rootRef}
       data-testid="rankings-panel"
-      className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-2.5 shadow-[var(--shadow-lg)] backdrop-blur-md sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
+      className="flex max-h-[min(320px,calc(100dvh-16rem))] flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 shadow-[var(--shadow-lg)] sm:max-h-[min(380px,calc(100dvh-15rem))] xl:max-h-[calc(100dvh-11rem)]"
       sx={{
         color: 'var(--on-surface)',
         fontFamily: 'var(--font-sans), "Avenir Next", "Segoe UI", sans-serif',
