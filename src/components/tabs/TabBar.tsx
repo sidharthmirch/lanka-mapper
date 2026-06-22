@@ -99,6 +99,8 @@ export default function TabBar({
     () => new Fuse(datasetManifest, {
       keys: [
         'name',
+        'originalName',
+        'category',
         'description',
         'path',
         'tags',
@@ -232,10 +234,11 @@ export default function TabBar({
               <li {...props}>
                 <div className="flex w-full items-center justify-between gap-2 py-2">
                   <div className="min-w-0 flex-1">
-                    <Typography variant="body2" className="font-semibold truncate">
+                    <Typography variant="body2" className="font-semibold truncate" title={option.originalName ?? option.name}>
                       {option.name}
                     </Typography>
                     <Typography variant="caption" className="opacity-65 truncate block">
+                      {option.category ? `${option.category} · ` : ''}
                       {sourceShortLabel(option.source)}
                       {' · '}
                       {option.years[0]}

@@ -297,27 +297,56 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
                 )}
               </Box>
 
-              {isOpen && connected.length > 0 && (
-                <ul className="mt-2 max-h-[220px] space-y-0.5 overflow-y-auto overscroll-contain border-t border-[var(--border)] pt-2">
-                  {connected.map((d) => (
-                    <li key={d.id}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectDataset(d)}
-                        className="group flex w-full items-center gap-2 rounded-[5px] px-1.5 py-1 text-left transition-colors hover:bg-[var(--surface-2)]"
-                      >
-                        <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--ink)] group-hover:text-[var(--accent)]">
-                          {d.name}
-                        </span>
-                        <span className="mono shrink-0 text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">{d.level}</span>
-                        {d.years.length > 0 && (
-                          <span className="mono shrink-0 text-[9px] tabular-nums text-[var(--ink-3)]">{yearLabel(d.years)}</span>
+              {isOpen && connected.length > 0 && (() => {
+                // Group an agency's datasets under their parent category; ungrouped → "Other" (last).
+                const groups = new Map<string, typeof connected>()
+                for (const d of connected) {
+                  const key = d.category ?? 'Other'
+                  const list = groups.get(key)
+                  if (list) list.push(d)
+                  else groups.set(key, [d])
+                }
+                const ordered = Array.from(groups.entries()).sort((a, b) => (
+                  a[0] === 'Other' ? 1 : b[0] === 'Other' ? -1 : a[0].localeCompare(b[0])
+                ))
+                const showHeadings = ordered.length > 1 || ordered[0]?.[0] !== 'Other'
+                return (
+                  <div className="mt-2 max-h-[260px] space-y-2 overflow-y-auto overscroll-contain border-t border-[var(--border)] pt-2">
+                    {ordered.map(([cat, items]) => (
+                      <div key={cat}>
+                        {showHeadings && (
+                          <div className="term-label mb-0.5 flex items-center gap-1.5 px-1.5">
+                            <span>{cat}</span>
+                            <span className="mono text-[9px] tabular-nums text-[var(--ink-3)]">{items.length}</span>
+                          </div>
                         )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                        <ul className="space-y-0.5">
+                          {items.map((d) => (
+                            <li key={d.id}>
+                              <button
+                                type="button"
+                                onClick={() => onSelectDataset(d)}
+                                className="group flex w-full items-center gap-2 rounded-[5px] px-1.5 py-1 text-left transition-colors hover:bg-[var(--surface-2)]"
+                              >
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-[12px] text-[var(--ink)] group-hover:text-[var(--accent)]">{d.name}</span>
+                                  {d.originalName && d.originalName !== d.name && (
+                                    <span className="block truncate text-[9px] text-[var(--ink-3)]" title={d.originalName}>{d.originalName}</span>
+                                  )}
+                                </span>
+                                <span className="mono shrink-0 text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">{d.level}</span>
+                                {d.years.length > 0 && (
+                                  <span className="mono shrink-0 text-[9px] tabular-nums text-[var(--ink-3)]">{yearLabel(d.years)}</span>
+                                )}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </Box>
           )
         })}

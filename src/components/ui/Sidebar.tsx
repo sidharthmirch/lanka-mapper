@@ -570,6 +570,22 @@ export default function Sidebar({
                 </div>
                 {(() => {
                   const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
+                  if (!activeDs) return null
+                  return (
+                    <>
+                      {activeDs.category && (
+                        <div>Category: <span className="font-semibold">{activeDs.category}</span></div>
+                      )}
+                      {activeDs.originalName && activeDs.originalName !== activeDs.name && (
+                        <div className="opacity-70">
+                          Catalog name: <span className="font-semibold break-words">{activeDs.originalName}</span>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+                {(() => {
+                  const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
                   if (!activeDs?.citation) return null
                   return (
                     <div className="pt-1 opacity-70">

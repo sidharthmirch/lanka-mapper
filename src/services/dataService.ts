@@ -6,6 +6,7 @@ import type {
   DatasetManifestEntry,
 } from '@/types'
 import { normalizeUnitLabel } from '@/lib/formatDataValue'
+import { prettifyDatasetName } from '@/lib/datasetNaming'
 
 const BASE_URL = 'https://raw.githubusercontent.com/LDFLK/datasets/main/data/statistics'
 const LDFLK_GIT_TREE_URL = 'https://api.github.com/repos/LDFLK/datasets/git/trees/main?recursive=1'
@@ -946,6 +947,17 @@ async function fetchLegacyNuuuwanProvinceData(year: number, category: string, op
     .filter((entry): entry is ProvinceData => entry !== null && entry.value > 0)
 }
 
+/**
+ * Replace the raw upstream name with a short display label + parent category,
+ * preserving the original (recoverable + still searchable via searchHints).
+ */
+function enrichDatasetName(entry: DatasetManifestEntry): DatasetManifestEntry {
+  const { displayName, category } = prettifyDatasetName(entry.name)
+  if (displayName === entry.name && !category) return entry
+  const searchHints = Array.from(new Set([...(entry.searchHints ?? []), entry.name]))
+  return { ...entry, name: displayName, originalName: entry.name, category, searchHints }
+}
+
 export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<DatasetManifestEntry[]> {
   const forceRefresh = Boolean(options.forceRefresh)
   const cachedManifest = getCached<DatasetManifestEntry[]>('dataset-catalog', forceRefresh)
@@ -963,7 +975,7 @@ export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<D
 
     const nuuuwanCatalog = buildNuuuwanCatalogEntries(nuuuwanGroups)
     // Local (curated) entries first so they surface at the top of the catalog.
-    const manifest = [...localCatalog, ...ldflkCatalog, ...nuuuwanCatalog]
+    const manifest = [...localCatalog, ...ldflkCatalog, ...nuuuwanCatalog].map(enrichDatasetName)
 
     datasetManifestState = manifest
     catalogLastSyncedAt = Date.now()

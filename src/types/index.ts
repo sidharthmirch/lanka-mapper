@@ -30,7 +30,12 @@ export type DatasetSource = 'ldflk' | 'nuuuwan' | 'local'
 
 export interface DatasetManifestEntry {
   id: string
+  /** Short, readable display label (prettified from the upstream name). */
   name: string
+  /** Raw upstream name, preserved for recovery/search when `name` is prettified. */
+  originalName?: string
+  /** Parent category for grouping (e.g. "Agriculture", "Provincial Council Revenue"). */
+  category?: string
   description: string
   source: DatasetSource
   secondarySource?: string
