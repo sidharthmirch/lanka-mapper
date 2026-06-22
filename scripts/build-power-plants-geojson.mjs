@@ -50,14 +50,39 @@ for (const m of html.matchAll(/<circle class="plant"[^>]*>/g)) {
   })
 }
 
+const norm = (s) => s.toLowerCase()
+  .replace(/\b(wpp|spp|bmp|mhp|mhpp|dpp|power|plant|station|hydroelectric|hydropower|hydro|solar|wind|farm|mini|phase|reservoir|ganga|oya|aru|ela|ii|iii|iv|i)\b/g, '')
+  .replace(/[^a-z0-9]/g, '')
+const knownNames = new Set(features.map((f) => norm(f.properties.name)))
+
+// Merge OSM-surveyed plants (scripts/osm-plant-coords.json) — PRECISE coords for
+// the major CEB stations the NCRE book omits + many private plants. approx:false.
+const osmPath = path.join(__dirname, 'osm-plant-coords.json')
+let osmAdded = 0
+if (fs.existsSync(osmPath)) {
+  for (const p of JSON.parse(fs.readFileSync(osmPath, 'utf8'))) {
+    const key = norm(p.name)
+    if (!key || knownNames.has(key)) continue
+    knownNames.add(key)
+    features.push({
+      type: 'Feature',
+      properties: {
+        name: p.name,
+        segment: p.segment,
+        capMw: typeof p.capMw === 'number' ? p.capMw : null,
+        approx: false,
+        source: p.source ?? 'OpenStreetMap',
+      },
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+    })
+    osmAdded += 1
+  }
+}
+
 // Merge agent-geocoded CEB NCRE plants (scripts/ceb-plant-coords.json). These are
 // TOWN/LOCALITY level, not plant-precise, so they carry approx:true + confidence;
 // the map renders them as hollow low-opacity dots so they don't read as surveyed
-// points. Skip any whose name already matches a precise plant above.
-const norm = (s) => s.toLowerCase()
-  .replace(/\b(wpp|spp|bmp|mhp|mhpp|dpp|power|plant|mini|hydro|solar|wind|phase|reservoir|ii|iii|iv|i)\b/g, '')
-  .replace(/[^a-z0-9]/g, '')
-const knownNames = new Set(features.map((f) => norm(f.properties.name)))
+// points. Skip any whose name already matches a precise (CSE or OSM) plant above.
 const cebPath = path.join(__dirname, 'ceb-plant-coords.json')
 let cebAdded = 0
 if (fs.existsSync(cebPath)) {
@@ -82,5 +107,6 @@ if (fs.existsSync(cebPath)) {
 }
 
 const bySeg = features.reduce((a, f) => ((a[f.properties.segment] = (a[f.properties.segment] || 0) + 1), a), {})
+const approxCount = features.filter((f) => f.properties.approx).length
 fs.writeFileSync(outPath, JSON.stringify({ type: 'FeatureCollection', features }))
-console.log(`plants: ${features.length} (precise + ${cebAdded} approx CEB)`, JSON.stringify(bySeg), '->', outPath)
+console.log(`plants: ${features.length} (${features.length - approxCount} precise [+${osmAdded} OSM], ${cebAdded} approx CEB)`, JSON.stringify(bySeg), '->', outPath)

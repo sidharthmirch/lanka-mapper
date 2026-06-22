@@ -44,6 +44,9 @@ const PLANT_COLORS: Record<string, string> = {
   wind: '#6fcf97',
   biomass: '#c98a5e',
   dendro: '#a88b4a',
+  coal: '#8a8f98',
+  oil: '#b06a8f',
+  other: '#9aa18d',
 }
 
 function useGeoLayer<T>(url: string, enabled: boolean): FeatureCollection<Geometry, T> | null {
