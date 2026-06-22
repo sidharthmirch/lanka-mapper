@@ -11,6 +11,6 @@ export function sourceShortLabel(source: DatasetSource): string {
 export function sourceFullLabel(source: DatasetSource | null): string {
   if (source === 'ldflk') return 'Lanka Data Foundation (LDFLK)'
   if (source === 'nuuuwan') return 'Lanka Data Search (LDS)'
-  if (source === 'local') return 'data.gov.lk / Dept. of Census & Statistics'
+  if (source === 'local') return 'data.gov.lk / CBSL (curated)'
   return 'N/A'
 }
