@@ -99,7 +99,7 @@ export default function TerminalStatusBar({
             onClick={onSync}
             disabled={catalogLoading}
             aria-label="Re-sync dataset catalog"
-            className="flex items-center gap-1.5 rounded-md border border-transparent px-1 py-0.5 text-[var(--ink-2)] transition-colors hover:border-[var(--border-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-[36px] items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-[var(--ink-2)] transition-colors hover:border-[var(--border-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:px-1 sm:py-0.5"
           >
             {catalogLoading ? (
               <CircularProgress size={11} thickness={6} sx={{ color: 'var(--ink-2)' }} />
@@ -120,8 +120,8 @@ export default function TerminalStatusBar({
           size="small"
           aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
           sx={{
-            width: 28,
-            height: 28,
+            width: { xs: 38, sm: 28 },
+            height: { xs: 38, sm: 28 },
             color: 'var(--ink-2)',
             border: '1px solid var(--border)',
             borderRadius: '6px',

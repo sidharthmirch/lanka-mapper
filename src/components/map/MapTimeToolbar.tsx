@@ -96,8 +96,10 @@ export default function MapTimeToolbar({
     } else if (sortedYears.length > 0) {
       labelled.add(sortedYears[0])
       labelled.add(sortedYears[sortedYears.length - 1])
-      const step = Math.max(1, Math.floor(sortedYears.length / 4))
-      for (let i = step; i < sortedYears.length - 1; i += step) labelled.add(sortedYears[i])
+      // Keep intermediate labels ≥2 indices clear of both ends so they never
+      // collide with the first/last label on a narrow (mobile) rail.
+      const step = Math.max(2, Math.floor(sortedYears.length / 4))
+      for (let i = step; i < sortedYears.length - 2; i += step) labelled.add(sortedYears[i])
     }
     return sortedYears.map((year, index) => ({
       value: index,
@@ -289,7 +291,7 @@ export default function MapTimeToolbar({
                   aria-label={`${s} times speed`}
                   disabled={loading}
                   onClick={() => onPlaybackSpeedChange(s)}
-                  className={`tabular-nums px-2 py-1 text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+                  className={`tabular-nums px-3 py-2 text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 sm:py-1.5 ${
                     i > 0 ? 'border-l border-[var(--border-2)]' : ''
                   } ${
                     active

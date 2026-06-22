@@ -162,6 +162,13 @@ body {
   background:
     radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--accent) 6%, transparent) 0%, transparent 55%),
     var(--bg);
+  /* Keep content clear of the notch / home indicator / rounded corners
+     (viewport-fit=cover exposes these insets; 0 on non-notched devices). */
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
 }
 
 /* ---- Terminal primitives ---- */

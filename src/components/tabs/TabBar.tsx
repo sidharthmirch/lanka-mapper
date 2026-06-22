@@ -126,7 +126,7 @@ export default function TabBar({
     <div
       className="w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-1.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]"
     >
-      <div className="flex min-h-[40px] items-center gap-2 sm:gap-3">
+      <div className="flex min-h-[40px] flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
         <Tabs
           value={currentTab}
@@ -136,7 +136,7 @@ export default function TabBar({
           textColor="inherit"
           indicatorColor="primary"
           sx={{
-            minHeight: 38,
+            minHeight: 44,
             flex: '1 1 auto',
             maxWidth: '100%',
             minWidth: 0,
@@ -146,7 +146,7 @@ export default function TabBar({
               background: 'var(--primary)',
             },
             '& .MuiTab-root': {
-              minHeight: 38,
+              minHeight: 44,
               minWidth: { xs: 72, lg: 84 },
               padding: { xs: '6px 12px', lg: '6px 14px' },
               fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -206,7 +206,7 @@ export default function TabBar({
         </div>
 
         <Autocomplete
-          className="order-first w-[min(380px,42vw)] min-w-0 shrink"
+          className="order-last w-full min-w-0 shrink sm:order-first sm:w-[min(380px,42vw)]"
           size="small"
           options={searchOptions}
           value={undefined}

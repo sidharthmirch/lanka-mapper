@@ -349,7 +349,7 @@ export default function Sidebar({
       transition={{
         layout: { type: 'tween', duration: 0.34, ease: [0.22, 1, 0.36, 1] },
       }}
-      className={`fixed z-[1200] flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] md:relative md:h-full md:shrink-0 ${open ? 'inset-x-3 bottom-3 top-3 min-w-0 md:inset-auto md:w-[300px] lg:w-[340px] xl:w-[392px]' : 'right-3 top-[8.25rem] h-[56px] w-[56px] md:inset-auto md:h-full md:w-[56px]'}`}
+      className={`fixed z-[1200] flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] md:relative md:h-full md:shrink-0 ${open ? 'inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-[max(0.75rem,env(safe-area-inset-top))] min-w-0 md:inset-auto md:w-[300px] lg:w-[340px] xl:w-[392px]' : 'right-3 top-[8.25rem] h-[56px] w-[56px] md:inset-auto md:h-full md:w-[56px]'}`}
       style={{ color: 'var(--ink)' }}
     >
       {!open ? (
@@ -360,6 +360,7 @@ export default function Sidebar({
               size="small"
               aria-label="Expand sidebar"
               className="border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
+              sx={{ width: { xs: 40, sm: 34 }, height: { xs: 40, sm: 34 } }}
             >
               <ChevronRightIcon fontSize="small" />
             </IconButton>

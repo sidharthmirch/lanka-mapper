@@ -22,7 +22,8 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        {/* Never disable zoom (WCAG 1.4.4 / 1.4.10) — users must be able to pinch-zoom. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta
           name="description"
           content="Lanka Mapper — explore Sri Lanka's open datasets on an interactive choropleth map with year playback, comparative time series, river / power-plant / grid layers, and a searchable catalog from LDFLK and Lanka Data Search."
