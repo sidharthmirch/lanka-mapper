@@ -38,5 +38,128 @@
     "defaultMetric": "Value",
     "hasGeo": true,
     "hasTime": true
+  },
+  {
+    "id": "literacy-rate-by-district",
+    "name": "Literacy Rate by District",
+    "description": "Adult (age 15 and above) literacy rate by district, 2012.",
+    "secondarySource": "Dept. of Census & Statistics",
+    "unit": "%",
+    "level": "district",
+    "metrics": [
+      "Value"
+    ],
+    "citation": "Department of Census and Statistics, Sri Lanka (via data.gov.lk)",
+    "citationUrl": "https://data.gov.lk/dataset/literacy-rate-age-15-above",
+    "tags": [
+      "local",
+      "literacy",
+      "education",
+      "district"
+    ],
+    "source": "local",
+    "path": "local:literacy-rate-by-district",
+    "years": [
+      2012
+    ],
+    "defaultMetric": "Value",
+    "hasGeo": true,
+    "hasTime": false
+  },
+  {
+    "id": "province-gdp-by-sector",
+    "name": "Provincial GDP by Sector",
+    "description": "Provincial gross domestic product by industrial origin (Rs. Mn), 2006–2011.",
+    "secondarySource": "Dept. of Census & Statistics",
+    "unit": "Rs. Mn",
+    "level": "province",
+    "metrics": [
+      "Total",
+      "Agriculture",
+      "Industry",
+      "Services"
+    ],
+    "citation": "Department of Census and Statistics, Sri Lanka (via data.gov.lk)",
+    "citationUrl": "https://data.gov.lk/dataset/province-wise-gross-domestic-production-2006-2012",
+    "tags": [
+      "local",
+      "gdp",
+      "economy",
+      "province"
+    ],
+    "source": "local",
+    "path": "local:province-gdp-by-sector",
+    "years": [
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011
+    ],
+    "defaultMetric": "Total",
+    "hasGeo": true,
+    "hasTime": true
+  },
+  {
+    "id": "crime-by-district",
+    "name": "Crime by District",
+    "description": "Reported grave crimes by category and district, 2010–2012.",
+    "secondarySource": "Sri Lanka Police via Dept. of Census & Statistics",
+    "unit": "incidents",
+    "level": "district",
+    "metrics": [
+      "Total"
+    ],
+    "citation": "Sri Lanka Police (via data.gov.lk)",
+    "citationUrl": "https://data.gov.lk/dataset/crime-data-2010-2012",
+    "tags": [
+      "local",
+      "crime",
+      "police",
+      "district"
+    ],
+    "source": "local",
+    "path": "local:crime-by-district",
+    "years": [
+      2010,
+      2011,
+      2012
+    ],
+    "defaultMetric": "Total",
+    "hasGeo": true,
+    "hasTime": true
+  },
+  {
+    "id": "road-accidents-by-district",
+    "name": "Road Accident Casualties by District",
+    "description": "Road-accident casualties by severity and district, 2010–2012.",
+    "secondarySource": "Sri Lanka Police via Dept. of Census & Statistics",
+    "unit": "casualties",
+    "level": "district",
+    "metrics": [
+      "Total",
+      "Deaths",
+      "Grievous Injury",
+      "Non Grievous Injury"
+    ],
+    "citation": "Sri Lanka Police (via data.gov.lk)",
+    "citationUrl": "https://data.gov.lk/dataset/road-accident-data-severity-injuries-2012",
+    "tags": [
+      "local",
+      "road",
+      "accidents",
+      "safety",
+      "district"
+    ],
+    "source": "local",
+    "path": "local:road-accidents-by-district",
+    "years": [
+      2011,
+      2012
+    ],
+    "defaultMetric": "Total",
+    "hasGeo": true,
+    "hasTime": true
   }
 ]

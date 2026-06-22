@@ -1163,10 +1163,12 @@ export async function fetchProvinceData(
       .map(([name, byYear]) => {
         const province = normalizeProvince(name)
         return {
+          // originalName is what the province choropleth joins on (geojson uses
+          // the canonical "<X> Province" form), so emit the normalized name.
           name: province,
           province,
           value: Number(byYear[year]?.[metric] ?? 0),
-          originalName: name,
+          originalName: province,
           originalProvince: name,
           originalValue: byYear[year]?.[metric],
         } as ProvinceData
