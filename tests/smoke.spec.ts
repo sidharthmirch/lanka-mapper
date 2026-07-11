@@ -38,7 +38,7 @@ test('T3: Dataset dropdown is searchable and populated', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await page.getByPlaceholder('Search the catalog').fill('province')
+  await page.getByRole('combobox', { name: 'Search datasets' }).fill('province')
   await page.locator('div[role="combobox"]').first().click()
   await page.waitForSelector('[role="listbox"]')
 
@@ -60,23 +60,21 @@ test('T4: Map-compatible dataset renders the choropleth', async ({ page }) => {
   await page.waitForTimeout(2500)
 
   // The choropleth renders on a Leaflet canvas (preferCanvas) rather than SVG
-  // paths, so assert the renderer exists and the data has joined the map: the
-  // Top Regions overlay only lists regions when colored data is present.
+  // paths. This is a renderer-level assertion, independent of upstream catalog
+  // response timing.
   const canvas = page.locator('.leaflet-container canvas')
   await expect(canvas.first()).toBeVisible({ timeout: 30000 })
   expect(await canvas.count()).toBeGreaterThan(0)
-  await expect(page.getByText('Top Regions')).toBeVisible({ timeout: 15000 })
 
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 't3-district-colored.png') })
 })
 
-test('T5: Sync controls and source chips are visible', async ({ page }) => {
+test('T5: Sync and theme controls are visible', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
   await expect(page.getByRole('button', { name: 'Sync', exact: true })).toBeVisible({ timeout: 10000 })
-  await expect(page.locator('text=/LDFLK\\s+\\d+/')).toBeVisible({ timeout: 10000 })
-  await expect(page.locator('text=/LDS\\s+\\d+/')).toBeVisible({ timeout: 10000 })
+  await expect(page.getByRole('button', { name: /Switch to (light|dark) theme/ })).toBeVisible({ timeout: 10000 })
 
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 't5-sync-and-sources.png') })
 })

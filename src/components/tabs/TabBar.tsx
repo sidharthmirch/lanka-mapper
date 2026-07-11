@@ -201,12 +201,6 @@ export default function TabBar({
                       </div>
                     )}
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
-                      {option.hasGeo && (
-                        <Chip label="Geo" size="small" className="bg-[var(--surface-variant)] text-[var(--on-surface)] font-semibold" sx={{ height: 18, fontSize: '0.58rem', borderRadius: '6px' }} />
-                      )}
-                      {option.hasTime && (
-                        <Chip label="Time" size="small" className="bg-[var(--surface-variant)] text-[var(--on-surface)] font-semibold" sx={{ height: 18, fontSize: '0.58rem', borderRadius: '6px' }} />
-                      )}
                       <Chip
                         label={levelChip.label}
                         size="small"
@@ -223,6 +217,10 @@ export default function TabBar({
             <TextField
               {...params}
               placeholder="Search datasets…"
+              inputProps={{
+                ...params.inputProps,
+                'aria-label': 'Search datasets',
+              }}
               variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {

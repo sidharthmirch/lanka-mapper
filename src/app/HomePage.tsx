@@ -12,20 +12,18 @@ import {
   CssBaseline,
   useMediaQuery,
 } from '@mui/material'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import Sidebar from '@/components/ui/Sidebar'
 import TerminalStatusBar from '@/components/ui/TerminalStatusBar'
 import { useAppStore } from '@/store'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
 import TabBar from '@/components/tabs/TabBar'
-import TimeSeriesChart from '@/components/tabs/TimeSeriesChart'
-import DataTable from '@/components/tabs/DataTable'
-import SourcesContent from '@/components/tabs/SourcesContent'
 import MapTimeToolbar, { type MapPlaybackSpeed } from '@/components/map/MapTimeToolbar'
 import MapColorLegend from '@/components/map/MapColorLegend'
 import CebLivePanel from '@/components/map/CebLivePanel'
 import FloatingPanel from '@/components/map/FloatingPanel'
+import RankingsChart from '@/components/tabs/RankingsChart'
 import {
   buildPlaybackSchedule,
   FRAMES_PER_GAP,
@@ -40,6 +38,7 @@ import {
   getAccentUiPalette,
   getGradientColors,
 } from '@/lib/uiThemePresets'
+import { formatMetricValue } from '@/lib/formatDataValue'
 
 const SriLankaMap = dynamic(() => import('@/components/map/SriLankaMap'), {
   ssr: false,
@@ -49,6 +48,10 @@ const SriLankaMap = dynamic(() => import('@/components/map/SriLankaMap'), {
     </Box>
   ),
 })
+
+const TimeSeriesChart = dynamic(() => import('@/components/tabs/TimeSeriesChart'))
+const DataTable = dynamic(() => import('@/components/tabs/DataTable'))
+const SourcesContent = dynamic(() => import('@/components/tabs/SourcesContent'))
 
 const CATALOG_POLL_INTERVAL = 20 * 60 * 1000
 const ACTIVE_DATASET_POLL_INTERVAL = 6 * 60 * 1000
@@ -186,6 +189,7 @@ export default function HomePage() {
   const selectDistrict = useAppStore((s) => s.selectDistrict)
   const selectProvince = useAppStore((s) => s.selectProvince)
   const setShowChoropleth = useAppStore((s) => s.setShowChoropleth)
+  const setShowCentroids = useAppStore((s) => s.setShowCentroids)
   const setMapAdminLevel = useAppStore((s) => s.setMapAdminLevel)
   const setShowRivers = useAppStore((s) => s.setShowRivers)
   const setShowPlants = useAppStore((s) => s.setShowPlants)
@@ -195,6 +199,7 @@ export default function HomePage() {
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
   const [mounted, setMounted] = useState(false)
+  const prefersReducedMotion = useReducedMotion() ?? false
   const [mapPlaybackActive, setMapPlaybackActive] = useState(false)
   const [mapPlaybackSpeed, setMapPlaybackSpeed] = useState<MapPlaybackSpeed>(1)
   const [mapPlaybackLoop, setMapPlaybackLoop] = useState(false)
@@ -260,6 +265,14 @@ export default function HomePage() {
     }
     return top.value > 0 ? { name: top.name, value: top.value } : null
   }, [rankingsData])
+
+  const selectedMapItem = useMemo(() => {
+    const selectedName = selectedProvince ?? selectedDistrict
+    if (!selectedName) return null
+    const rows = selectedProvince ? rankingsData : data ?? []
+    const match = rows.find((row) => row.name.toLowerCase() === selectedName.toLowerCase())
+    return match ? { name: match.name, value: match.value, level: selectedProvince ? 'Province' : 'District' } : null
+  }, [data, rankingsData, selectedDistrict, selectedProvince])
 
   const years = useMemo(
     () => activeDataset?.years ?? [currentYear],
@@ -593,7 +606,7 @@ export default function HomePage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.45 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.45 }}
                 id="main-content"
                 className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/80 shadow-[var(--shadow-lg)]"
                 aria-label="Main content"
@@ -621,6 +634,7 @@ export default function HomePage() {
                     sidebarOpen={sidebarOpen}
                     accentColor={getAccentUiPalette(accentPresetId, accentTone, isDarkMode).main}
                     mapPlaybackActive={mapPlaybackActive}
+                    prefersReducedMotion={prefersReducedMotion}
                   />
 
                   {data && data.length === 0 && (
@@ -639,6 +653,35 @@ export default function HomePage() {
                       animateValues={mapPlaybackActive}
                       animationDurationMs={mapPlaybackFrameMs}
                     />
+                  )}
+
+                  {rankingsData.length > 0 && (
+                    <Box className="absolute left-3 top-3 z-[850] w-[min(18rem,calc(100%-1.5rem))]">
+                      <RankingsChart
+                        data={rankingsData}
+                        unit={currentDatasetUnit}
+                        playbackActive={mapPlaybackActive}
+                        animationDurationMs={mapPlaybackFrameMs}
+                        onSelect={(name) => {
+                          if (currentDatasetLevel === 'province') selectProvince(name)
+                          else selectDistrict(name)
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {selectedMapItem && (
+                    <Box
+                      role="status"
+                      aria-live="polite"
+                      className="absolute right-3 top-24 z-[850] max-w-[min(18rem,calc(100%-1.5rem))] rounded-md border border-[var(--accent)] bg-[var(--surface)] px-3 py-2 shadow-[var(--shadow-md)]"
+                    >
+                      <span className="term-label text-[var(--accent)]">Selected {selectedMapItem.level}</span>
+                      <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--ink)]">{selectedMapItem.name}</div>
+                      <div className="mono mt-0.5 text-[13px] font-bold text-[var(--accent)]">
+                        {formatMetricValue(selectedMapItem.value, currentDatasetUnit, 'compact')}
+                      </div>
+                    </Box>
                   )}
 
                   {showCebLive && (
@@ -716,6 +759,7 @@ export default function HomePage() {
               data={data}
               loading={loading || catalogLoading}
               selectedDistrict={selectedDistrict}
+              selectedProvince={selectedProvince}
               selectedMetric={selectedMetric}
               availableMetrics={availableMetrics}
               currentDatasetLevel={currentDatasetLevel}
@@ -725,6 +769,7 @@ export default function HomePage() {
               currentDatasetUnit={currentDatasetUnit}
               currentTab={currentTab}
               showChoropleth={showChoropleth}
+              showCentroids={showCentroids}
               renderLevel={renderLevel}
               availableAdminLevels={availableAdminLevels}
               onAdminLevelChange={setMapAdminLevel}
@@ -748,6 +793,7 @@ export default function HomePage() {
               onDatasetChange={handleDatasetChange}
               onMetricChange={handleMetricChange}
               onToggleChoropleth={setShowChoropleth}
+              onToggleCentroids={setShowCentroids}
               onToggleRivers={setShowRivers}
               onTogglePlants={setShowPlants}
               onToggleGrid={setShowGrid}

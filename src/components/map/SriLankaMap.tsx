@@ -46,6 +46,8 @@ interface SriLankaMapProps {
    * matches the roundWhileActive policy in legend + rankings.
    */
   mapPlaybackActive?: boolean
+  /** Honours OS reduced-motion preference for map recentering. */
+  prefersReducedMotion?: boolean
 }
 
 /** Generic boundary feature; the property set depends on the level. */
@@ -131,8 +133,9 @@ interface HoverTooltipState {
 }
 
 /** Reserved width/height for floating tooltip clamp vs map container. */
-const TOOLTIP_MAX_W = 230
-const TOOLTIP_MAX_H = 150
+const TOOLTIP_MAX_W = 334
+const TOOLTIP_MAX_H = 216
+const TOOLTIP_CURSOR_OFFSET = { x: 14, y: 12 }
 
 const DISTRICT_TO_PROVINCE: Record<string, string> = {
   Colombo: 'Western Province',
@@ -290,6 +293,7 @@ export default function SriLankaMap({
   sidebarOpen,
   accentColor: accentColorProp,
   mapPlaybackActive = false,
+  prefersReducedMotion = false,
 }: SriLankaMapProps) {
   const accentColor = accentColorProp ?? getAccentPreset(DEFAULT_ACCENT_ID).main
   /**
@@ -809,7 +813,7 @@ export default function SriLankaMap({
       {mapInstance && (
         <button
           type="button"
-          onClick={() => mapInstance.setView(SRI_LANKA_CENTER, DEFAULT_ZOOM, { animate: true })}
+          onClick={() => mapInstance.setView(SRI_LANKA_CENTER, DEFAULT_ZOOM, { animate: !prefersReducedMotion })}
           aria-label="Recenter map on Sri Lanka"
           title="Recenter"
           className="absolute right-3 top-3 z-[800] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)] text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] lg:top-auto lg:bottom-20"
@@ -822,8 +826,8 @@ export default function SriLankaMap({
         <div
           className="pointer-events-none absolute z-[1200] max-w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-lg border px-3 py-2 shadow-md"
           style={{
-            left: hoverTooltip.x + 14,
-            top: hoverTooltip.y + 12,
+            left: hoverTooltip.x + TOOLTIP_CURSOR_OFFSET.x,
+            top: hoverTooltip.y + TOOLTIP_CURSOR_OFFSET.y,
             borderColor: 'var(--outline)',
             background: 'var(--surface)',
             color: 'var(--on-surface)',

@@ -3,7 +3,7 @@
 import { memo, useEffect, useState } from 'react'
 import { CircleMarker, GeoJSON, Tooltip } from 'react-leaflet'
 import type { Feature, FeatureCollection, Geometry, LineString, MultiPolygon, Point, Polygon } from 'geojson'
-import type { Layer, Path, PathOptions } from 'leaflet'
+import type { PathOptions } from 'leaflet'
 
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
@@ -28,13 +28,6 @@ interface MapDataLayersProps {
   showGrid: boolean
   showBasins: boolean
   isDark: boolean
-}
-
-/** Escape basin names before injecting into the Leaflet tooltip's HTML. */
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c
-  ))
 }
 
 /** Plant marker colors by segment — bright so dots pop over the choropleth. */
@@ -91,27 +84,17 @@ const MapDataLayers = memo(function MapDataLayers({ showRivers, showPlants, show
     return { color: riverColor, weight: ord >= 5 ? 1.8 : 1, opacity: 0.75, interactive: false }
   }
 
-  // Basin watersheds: dashed outline, invisible-but-hittable fill so hover
-  // surfaces the basin name without hiding the choropleth underneath.
+  // Basin boundaries are reference context, never an input layer. Keeping them
+  // non-interactive means an invisible basin fill cannot steal region hover,
+  // tap, or keyboard-alternative selection from the choropleth.
   const basinStyle = (): PathOptions => ({
     color: basinColor,
     weight: 1.3,
     opacity: 0.85,
     dashArray: '5 4',
-    fill: true,
-    fillOpacity: 0,
+    fill: false,
+    interactive: false,
   })
-
-  const onEachBasin = (feature: Feature<Geometry, BasinProps>, layer: Layer) => {
-    const name = feature.properties?.name ?? 'Basin'
-    const area = feature.properties?.areaKm2
-    const label = `<span class="font-semibold">${escapeHtml(name)}</span>${area ? ` · ${area.toLocaleString()} km²` : ''}`
-    layer.bindTooltip(label, { sticky: true, direction: 'top', className: 'custom-leaflet-tooltip' })
-    layer.on({
-      mouseover: () => (layer as Path).setStyle({ weight: 2.2, fillOpacity: 0.12, fillColor: basinColor }),
-      mouseout: () => (layer as Path).setStyle({ weight: 1.3, fillOpacity: 0 }),
-    })
-  }
 
   const gridStyle = (feature?: Feature<Geometry, GridProps>): PathOptions => {
     const kv = feature?.properties?.kv ?? 0
@@ -126,7 +109,7 @@ const MapDataLayers = memo(function MapDataLayers({ showRivers, showPlants, show
           key={`basins-${isDark}`}
           data={basins as FeatureCollection<Polygon | MultiPolygon, BasinProps>}
           style={basinStyle as () => PathOptions}
-          onEachFeature={onEachBasin as (f: Feature<Geometry, Record<string, unknown>>, l: Layer) => void}
+          interactive={false}
         />
       )}
 

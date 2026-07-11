@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
+import { useMediaQuery } from '@mui/material'
 import {
   Box,
   ButtonBase,
@@ -47,6 +48,7 @@ interface SidebarProps {
   data: MapData[] | null
   loading: boolean
   selectedDistrict: string | null
+  selectedProvince: string | null
   selectedMetric: string | null
   availableMetrics: string[]
   currentDatasetLevel: 'district' | 'province' | 'national' | null
@@ -56,6 +58,7 @@ interface SidebarProps {
   currentDatasetUnit: string | null
   currentTab: AppTab
   showChoropleth: boolean
+  showCentroids: boolean
   showBasins: boolean
   /** Active choropleth boundary granularity. */
   renderLevel: MapAdminLevel
@@ -81,6 +84,7 @@ interface SidebarProps {
   onDatasetChange: (dataset: string) => void
   onMetricChange: (metric: string) => void
   onToggleChoropleth: (show: boolean) => void
+  onToggleCentroids: (show: boolean) => void
   onToggleRivers: (show: boolean) => void
   onTogglePlants: (show: boolean) => void
   onToggleGrid: (show: boolean) => void
@@ -171,6 +175,7 @@ export default function Sidebar({
   data,
   loading,
   selectedDistrict,
+  selectedProvince,
   selectedMetric,
   availableMetrics,
   currentDatasetLevel,
@@ -180,6 +185,7 @@ export default function Sidebar({
   currentDatasetUnit,
   currentTab,
   showChoropleth,
+  showCentroids,
   showBasins,
   renderLevel,
   availableAdminLevels,
@@ -203,6 +209,7 @@ export default function Sidebar({
   onDatasetChange,
   onMetricChange,
   onToggleChoropleth,
+  onToggleCentroids,
   onToggleRivers,
   onTogglePlants,
   onToggleGrid,
@@ -214,6 +221,10 @@ export default function Sidebar({
   mapPlaybackActive = false,
   mapPlaybackFrameMs = 450,
 }: SidebarProps) {
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const prefersReducedMotion = useReducedMotion() ?? false
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const accentPresetId = useAppStore((s) => s.accentPresetId)
   const accentTone = useAppStore((s) => s.accentTone)
   const gradientPresetId = useAppStore((s) => s.gradientPresetId)
@@ -344,13 +355,57 @@ export default function Sidebar({
 
   const showRandom = currentTab !== 'sources' && onRandomPick
 
+  useEffect(() => {
+    if (!isMobile || !open) return
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    const frame = requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>('[data-sidebar-close]')?.focus()
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      previousFocusRef.current?.focus()
+    }
+  }, [isMobile, open])
+
+  const trapMobileDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!isMobile || !open || event.key !== 'Tab') return
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter((element) => !element.hasAttribute('hidden'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <motion.div
+      ref={dialogRef}
       layout
       initial={false}
       animate={{ opacity: 1 }}
       transition={{
-        layout: { type: 'tween', duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+        layout: { type: 'tween', duration: prefersReducedMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] },
+      }}
+      role={isMobile && open ? 'dialog' : undefined}
+      aria-modal={isMobile && open ? true : undefined}
+      aria-label={isMobile && open ? 'Dataset inspector' : undefined}
+      onKeyDown={trapMobileDialogFocus}
+      onKeyDownCapture={(event) => {
+        if (isMobile && open && event.key === 'Escape') {
+          event.preventDefault()
+          onClose()
+        }
       }}
       className={`fixed z-[1200] flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] md:relative md:h-full md:shrink-0 ${open ? 'inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-[max(0.75rem,env(safe-area-inset-top))] min-w-0 md:inset-auto md:w-[300px] lg:w-[340px] xl:w-[392px]' : 'right-3 top-[8.25rem] h-auto w-[56px] md:inset-auto md:h-full md:w-[56px]'}`}
       style={{ color: 'var(--ink)' }}
@@ -416,7 +471,7 @@ export default function Sidebar({
                 {totalDatasets.toLocaleString()} SETS · SYNC {lastCatalogSyncLabel}
               </span>
             </Box>
-            <IconButton onClick={onClose} size="small" aria-label="Collapse sidebar" className="shrink-0 border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]">
+            <IconButton data-sidebar-close onClick={onClose} size="small" aria-label="Collapse sidebar" className="shrink-0 border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]">
               <ChevronLeftIcon />
             </IconButton>
           </Box>
@@ -670,6 +725,17 @@ export default function Sidebar({
                     <Switch size="small" checked={showChoropleth} onChange={(_, checked) => onToggleChoropleth(checked)} inputProps={{ 'aria-label': 'Region shading' }} />
                   </Box>
 
+                  <Box className="mt-1 flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
+                    <Box className="flex min-w-0 items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--border-2)] bg-[var(--accent)]" />
+                      <Typography variant="caption" className="font-semibold opacity-85">District markers</Typography>
+                      <Tooltip title="Shows selectable district value markers.">
+                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'var(--ink-3)' }} />
+                      </Tooltip>
+                    </Box>
+                    <Switch size="small" checked={showCentroids} onChange={(_, checked) => onToggleCentroids(checked)} inputProps={{ 'aria-label': 'District markers' }} />
+                  </Box>
+
                   <ButtonBase
                     type="button"
                     className="mt-1 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface)]/60"
@@ -805,7 +871,28 @@ export default function Sidebar({
               </Box>
             ) : stats ? (
               <Box className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-2)]">
-                {/* Focal total — one big number anchors the readout; supporting stats sit below, hairline-separated (instrument panel, not a card grid). */}
+                {maxItem && (
+                  <Box className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+                    <Box className="min-w-0">
+                      <span className="term-label" style={{ color: 'var(--accent)' }}>
+                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
+                      </span>
+                      <div className="truncate text-[15px] font-semibold text-[var(--ink)]">
+                        {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
+                      </div>
+                    </Box>
+                    <span className="mono shrink-0 text-[15px] font-bold text-[var(--accent)]">
+                      <AnimatedMetricText
+                        value={maxItem.value}
+                        unit={currentDatasetUnit}
+                        playbackActive={mapPlaybackActive}
+                        durationMs={mapPlaybackFrameMs}
+                      />
+                    </span>
+                  </Box>
+                )}
+
+                {/* Supporting aggregate follows the region users can inspect or select. */}
                 <Box className="border-b border-[var(--border)] px-4 py-3">
                   <Box className="flex items-baseline justify-between gap-2">
                     <span className="term-label">{aggregateLabel}</span>
@@ -846,26 +933,6 @@ export default function Sidebar({
                   ))}
                 </Box>
 
-                {maxItem && (
-                  <Box className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5">
-                    <Box className="min-w-0">
-                      <span className="term-label" style={{ color: 'var(--accent)' }}>
-                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
-                      </span>
-                      <div className="truncate text-[13px] font-semibold text-[var(--ink)]">
-                        {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
-                      </div>
-                    </Box>
-                    <span className="mono shrink-0 text-[13px] font-bold text-[var(--accent)]">
-                      <AnimatedMetricText
-                        value={maxItem.value}
-                        unit={null}
-                        playbackActive={mapPlaybackActive}
-                        durationMs={mapPlaybackFrameMs}
-                      />
-                    </span>
-                  </Box>
-                )}
               </Box>
             ) : (
               <Box className="text-center py-12 opacity-60">
@@ -875,25 +942,33 @@ export default function Sidebar({
               </Box>
             )}
 
-            {selectedDistrict && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            {(selectedDistrict || selectedProvince) && (() => {
+              const selectedName = selectedProvince ?? selectedDistrict!
+              const selectedLabel = selectedProvince ? 'Selected Province' : 'Selected District'
+              const selectedValue = data?.find((item) => (
+                (selectedProvince ? item.originalName || item.name : item.name).toLowerCase() === selectedName.toLowerCase()
+              ))?.value ?? 0
+              return (
+              <motion.div
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
+              >
                 <Divider className="border-[var(--border)] mb-4" />
                 <Card className="rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] shadow-none">
                   <CardContent className="p-4">
                     <span className="term-label" style={{ color: 'var(--accent)' }}>
-                      Selected District
+                      {selectedLabel}
                     </span>
                     <Typography variant="h6" className="mt-1.5 font-bold">
-                      {selectedDistrict}
+                      {selectedName}
                     </Typography>
                     {data && (
                       <Typography variant="body2" className="mt-1 font-semibold opacity-80">
                         Value:{' '}
                         <span className="font-bold">
                           <AnimatedMetricText
-                            value={
-                              data.find((item) => item.name?.toLowerCase() === selectedDistrict.toLowerCase())?.value || 0
-                            }
+                            value={selectedValue}
                             unit={currentDatasetUnit}
                             playbackActive={mapPlaybackActive}
                             durationMs={mapPlaybackFrameMs}
@@ -904,7 +979,8 @@ export default function Sidebar({
                   </CardContent>
                 </Card>
               </motion.div>
-            )}
+              )
+            })()}
           </Box>
 
           <Box className="border-t border-[var(--border)] bg-[var(--surface-2)] p-4">

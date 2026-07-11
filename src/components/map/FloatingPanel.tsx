@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, useState, type ReactNode, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type ReactNode, type PointerEvent } from 'react'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import CloseIcon from '@mui/icons-material/Close'
+import RestartAltIcon from '@mui/icons-material/RestartAlt'
 
 interface FloatingPanelProps {
   /** Outer positioning classes (absolute placement on the map). */
@@ -22,7 +23,31 @@ interface FloatingPanelProps {
  */
 export default function FloatingPanel({ className, onClose, label, children }: FloatingPanelProps) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const panelRef = useRef<HTMLDivElement | null>(null)
   const drag = useRef<{ px: number; py: number; bx: number; by: number } | null>(null)
+
+  const clampOffset = (next: { x: number; y: number }, current = offset) => {
+    const panel = panelRef.current
+    const container = panel?.parentElement
+    if (!panel || !container) return next
+
+    const panelRect = panel.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    return {
+      x: Math.min(
+        Math.max(next.x, current.x + containerRect.left - panelRect.left),
+        current.x + containerRect.right - panelRect.right,
+      ),
+      y: Math.min(
+        Math.max(next.y, current.y + containerRect.top - panelRect.top),
+        current.y + containerRect.bottom - panelRect.bottom,
+      ),
+    }
+  }
+
+  const moveBy = (x: number, y: number) => {
+    setOffset((current) => clampOffset({ x: current.x + x, y: current.y + y }, current))
+  }
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     e.preventDefault()
@@ -32,15 +57,31 @@ export default function FloatingPanel({ className, onClose, label, children }: F
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
     if (!d) return
-    setOffset({ x: d.bx + (e.clientX - d.px), y: d.by + (e.clientY - d.py) })
+    setOffset(clampOffset({ x: d.bx + (e.clientX - d.px), y: d.by + (e.clientY - d.py) }))
   }
   const endDrag = (e: PointerEvent<HTMLButtonElement>) => {
     drag.current = null
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* released */ }
   }
+  const onDragKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.shiftKey ? 48 : 16
+    const delta = e.key === 'ArrowLeft'
+      ? [-step, 0]
+      : e.key === 'ArrowRight'
+        ? [step, 0]
+        : e.key === 'ArrowUp'
+          ? [0, -step]
+          : e.key === 'ArrowDown'
+            ? [0, step]
+            : null
+    if (!delta) return
+    e.preventDefault()
+    moveBy(delta[0], delta[1])
+  }
 
   return (
     <div
+      ref={panelRef}
       className={className}
       style={offset.x || offset.y ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
     >
@@ -52,11 +93,19 @@ export default function FloatingPanel({ className, onClose, label, children }: F
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          onDoubleClick={() => setOffset({ x: 0, y: 0 })}
-          title="Drag to move · double-click to reset"
+          onKeyDown={onDragKeyDown}
+          title="Drag to move. Arrow keys move; Shift + arrow moves farther."
           className="flex h-7 cursor-grab touch-none items-center rounded-md px-1 text-[var(--ink-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink-2)] active:cursor-grabbing"
         >
           <DragIndicatorIcon sx={{ fontSize: 16 }} />
+        </button>
+        <button
+          type="button"
+          aria-label={`Reset ${label} position`}
+          onClick={() => setOffset({ x: 0, y: 0 })}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--ink-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+        >
+          <RestartAltIcon sx={{ fontSize: 15 }} />
         </button>
         {onClose && (
           <button

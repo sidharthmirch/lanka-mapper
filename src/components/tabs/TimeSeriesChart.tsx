@@ -119,10 +119,12 @@ export default function TimeSeriesChart({
     if (plotMode !== 'line') return []
 
     return filteredYears.map((year) => {
-      const row: Record<string, number | string> = { year: String(year) }
+      const row: Record<string, number | string | null> = { year: String(year) }
       effectiveNames.forEach((name) => {
         const raw = seriesData[name]?.[year]
-        row[name] = raw !== undefined && Number.isFinite(raw) ? raw : 0
+        // A missing observation is not zero. `null` renders as a visible gap,
+        // preventing the chart from implying an unreported value collapsed.
+        row[name] = raw !== undefined && Number.isFinite(raw) ? raw : null
       })
       return row
     })
@@ -187,6 +189,11 @@ export default function TimeSeriesChart({
             <span className="mono mt-1 block text-[10.5px] text-[var(--ink-3)]">
               {sourceLabel} · {secondarySource || 'N/A'} · {unitCaption}
             </span>
+            {plotMode === 'bar' && categoricalData.length > 30 && (
+              <span className="mono mt-1 block text-[10px] text-[var(--ink-3)]">
+                Showing the top 30 of {categoricalData.length.toLocaleString()} categories
+              </span>
+            )}
             {citation && (
               <Typography variant="caption" className="mt-1 block text-[11px] text-[var(--ink-3)]">
                 Cite as{' '}

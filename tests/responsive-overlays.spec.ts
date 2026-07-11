@@ -10,7 +10,7 @@ async function openTimeMapDataset(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
   await page.waitForSelector('.leaflet-container', { timeout: 30000 })
 
-  await page.getByPlaceholder('Search the catalog').fill('Accommodations by District')
+  await page.getByRole('combobox', { name: 'Search datasets' }).fill('Accommodations by District')
   await page.waitForSelector('[role="option"]', { timeout: 15000 })
   await page.getByRole('option').filter({ hasText: 'Accommodations by District' }).click()
   await page.waitForLoadState('networkidle')
@@ -75,11 +75,22 @@ test('small map viewport keeps controls from colliding', async ({ page }) => {
   expect(await page.locator('[data-testid="ranking-row"]:visible').count()).toBe(0)
 
   await expect(page.getByRole('button', { name: 'Random dataset' })).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: 'Region shading' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Toggle region shading' })).toBeVisible()
 
   // Expanding the panel reveals the ranking rows.
   await page.getByRole('button', { name: 'Top Regions' }).click()
   await expect
     .poll(() => page.locator('[data-testid="ranking-row"]:visible').count(), { timeout: 5000 })
     .toBeGreaterThan(0)
+})
+
+test('mobile inspector uses dismissible dialog semantics', async ({ page }) => {
+  await page.setViewportSize(SMALL_VIEWPORT)
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: 'Expand sidebar' }).click()
+  await expect(page.getByRole('dialog', { name: 'Dataset inspector' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Dataset inspector' })).toHaveCount(0)
 })

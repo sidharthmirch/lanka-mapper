@@ -18,6 +18,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
   return (
     <html lang="en">
       <head>
@@ -34,7 +36,7 @@ export default function RootLayout({
           property="og:description"
           content="Interactive map, year playback, and time-series explorer across Sri Lanka district, province, and national datasets."
         />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href={`${basePath}/favicon.svg`} />
         <title>Lanka Mapper</title>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>

@@ -205,7 +205,7 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
   return (
     <Box className="h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" sx={{ color: 'var(--ink)' }}>
       <span className="term-label">DATA SOURCES</span>
-      <Typography variant="body2" className="mt-2 max-w-[64ch] text-[13.5px] leading-relaxed text-[var(--ink-2)]">
+      <Typography variant="body2" className="mt-2 max-w-[64ch] text-[var(--text-body)] leading-relaxed text-[var(--ink-2)]">
         This terminal joins an open catalog from the{' '}
         <strong className="text-[var(--ink)]">Lanka Data Foundation (LDFLK)</strong> with live series from{' '}
         <strong className="text-[var(--ink)]">Lanka Data Search (LDS)</strong>, built on nuuuwan&apos;s timeseries
