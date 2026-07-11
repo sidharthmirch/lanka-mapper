@@ -611,12 +611,6 @@ export default function HomePage() {
                 onTabChange={setCurrentTab}
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
-                sidebarOpen={sidebarOpen}
-                showRandom={currentTab === 'map' || currentTab === 'plots' || currentTab === 'table'}
-                randomDisabled={randomPickDisabled}
-                onRandomPick={handleRandomPick}
-                showChoropleth={showChoropleth}
-                onToggleChoropleth={setShowChoropleth}
               />
               <motion.div
                 initial={{ opacity: 0 }}
@@ -725,7 +719,9 @@ export default function HomePage() {
                     <Box
                       className={`absolute bottom-8 z-[860] md:bottom-6 xl:bottom-4 ${
                         isMobileLayout
-                          ? 'left-3 right-3'
+                          ? sidebarOpen
+                            ? 'left-3 right-3'
+                            : 'left-3 right-[calc(4.5rem+env(safe-area-inset-right))]'
                           : sidebarOpen
                             ? 'left-4 right-auto w-[min(46rem,calc(100%-2rem))]'
                             : 'left-1/2 w-[min(46rem,calc(100%-2rem))] -translate-x-1/2'
@@ -854,12 +850,17 @@ export default function HomePage() {
           {loading && (
             <Box className="fixed inset-0 z-[1300] flex items-center justify-center bg-[rgba(34,32,28,0.22)] backdrop-blur-sm">
               <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
+                initial={prefersReducedMotion ? false : { scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
                 className="rounded-lg border border-[var(--outline)] bg-[var(--surface)]/94 p-6 shadow-[var(--shadow-md)]"
               >
                 <Box className="flex items-center space-x-4">
-                  <CircularProgress size={28} thickness={4} />
+                  {prefersReducedMotion ? (
+                    <span aria-hidden className="h-7 w-7 rounded-full border-[3px] border-[var(--accent)]" />
+                  ) : (
+                    <CircularProgress size={28} thickness={4} />
+                  )}
                   <Box>
                     <Typography className="font-semibold">Loading dataset</Typography>
                     <Typography variant="body2" className="opacity-70">Polling live sources and refreshing visuals…</Typography>

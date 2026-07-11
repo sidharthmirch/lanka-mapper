@@ -2,6 +2,29 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+type FrameSubscriber = (timestamp: number) => void
+
+const frameSubscribers = new Set<FrameSubscriber>()
+let sharedFrameId: number | null = null
+
+function runSharedFrame(timestamp: number) {
+  frameSubscribers.forEach((subscriber) => subscriber(timestamp))
+  sharedFrameId = frameSubscribers.size > 0 ? requestAnimationFrame(runSharedFrame) : null
+}
+
+function subscribeToSharedFrames(subscriber: FrameSubscriber) {
+  frameSubscribers.add(subscriber)
+  if (sharedFrameId === null) sharedFrameId = requestAnimationFrame(runSharedFrame)
+
+  return () => {
+    frameSubscribers.delete(subscriber)
+    if (frameSubscribers.size === 0 && sharedFrameId !== null) {
+      cancelAnimationFrame(sharedFrameId)
+      sharedFrameId = null
+    }
+  }
+}
+
 export interface AnimatedScalarOptions {
   /**
    * When true AND `enabled` is true, the returned value is rounded to the nearest
@@ -37,7 +60,6 @@ export function useAnimatedScalar(
   const [display, setDisplay] = useState(target)
   const displayRef = useRef(target)
   const targetRef = useRef(target)
-  const rafRef = useRef(0)
 
   useEffect(() => {
     targetRef.current = target
@@ -45,7 +67,6 @@ export function useAnimatedScalar(
 
   useEffect(() => {
     if (!enabled) {
-      cancelAnimationFrame(rafRef.current)
       return
     }
 
@@ -65,11 +86,9 @@ export function useAnimatedScalar(
       const next = displayRef.current + (targetRef.current - displayRef.current) * k
       displayRef.current = next
       setDisplay(next)
-      rafRef.current = requestAnimationFrame(tick)
     }
 
-    rafRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafRef.current)
+    return subscribeToSharedFrames(tick)
   }, [enabled, durationMs])
 
   useEffect(() => {

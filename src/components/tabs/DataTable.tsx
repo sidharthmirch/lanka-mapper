@@ -1,12 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Box, TextField, Typography } from '@mui/material'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Button, TextField, Typography, useMediaQuery } from '@mui/material'
 import type { TabularData } from '@/types'
 
 interface DataTableProps {
   tableData: TabularData | null
 }
+
+const DESKTOP_ROW_HEIGHT = 39
+const ROW_OVERSCAN = 8
+const MOBILE_PAGE_SIZE = 50
+const MAX_UNVIRTUALIZED_ROWS = 500
 
 function isNumericCell(cell: unknown): boolean {
   if (typeof cell === 'number') return Number.isFinite(cell)
@@ -18,13 +23,20 @@ function isNumericCell(cell: unknown): boolean {
 
 export default function DataTable({ tableData }: DataTableProps) {
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(0)
+  const [showAllRows, setShowAllRows] = useState(false)
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_PAGE_SIZE)
+  const tableViewportRef = useRef<HTMLDivElement | null>(null)
+  const isMobile = useMediaQuery('(max-width: 599px)')
 
   const rows = useMemo(() => {
     if (!tableData) return []
-    if (!query.trim()) return tableData.rows
-    const lowered = query.toLowerCase()
+    if (!deferredQuery.trim()) return tableData.rows
+    const lowered = deferredQuery.toLowerCase()
     return tableData.rows.filter((row) => row.some((cell) => String(cell).toLowerCase().includes(lowered)))
-  }, [query, tableData])
+  }, [deferredQuery, tableData])
 
   // Infer per-column alignment from the first data row: numeric columns right-align.
   const columnIsNumeric = useMemo(() => {
@@ -32,6 +44,34 @@ export default function DataTable({ tableData }: DataTableProps) {
     const sample = tableData.rows.find((r) => r.some((c) => c != null)) ?? tableData.rows[0]
     return tableData.columns.map((_, i) => isNumericCell(sample[i]))
   }, [tableData])
+
+  useEffect(() => {
+    const viewport = tableViewportRef.current
+    if (!viewport || isMobile) return
+
+    const updateHeight = () => setViewportHeight(viewport.clientHeight)
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [isMobile, tableData])
+
+  useEffect(() => {
+    setScrollTop(0)
+    setShowAllRows(false)
+    setMobileVisibleCount(MOBILE_PAGE_SIZE)
+    tableViewportRef.current?.scrollTo({ top: 0 })
+  }, [deferredQuery, tableData])
+
+  const visibleRange = useMemo(() => {
+    const visibleRows = Math.ceil(viewportHeight / DESKTOP_ROW_HEIGHT)
+    const start = Math.max(0, Math.floor(scrollTop / DESKTOP_ROW_HEIGHT) - ROW_OVERSCAN)
+    const end = Math.min(rows.length, start + visibleRows + ROW_OVERSCAN * 2)
+    return { start, end }
+  }, [rows.length, scrollTop, viewportHeight])
+  const desktopRows = showAllRows ? rows : rows.slice(visibleRange.start, visibleRange.end)
+  const renderedRange = showAllRows ? { start: 0, end: rows.length } : visibleRange
+  const mobileRows = rows.slice(0, mobileVisibleCount)
 
   if (!tableData) {
     return (
@@ -56,6 +96,16 @@ export default function DataTable({ tableData }: DataTableProps) {
               {rows.length.toLocaleString()}
               {rows.length !== tableData.rows.length ? ` / ${tableData.rows.length.toLocaleString()}` : ''} rows
             </span>
+            {!isMobile && rows.length > ROW_OVERSCAN * 3 && rows.length <= MAX_UNVIRTUALIZED_ROWS && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setShowAllRows((show) => !show)}
+                sx={{ minHeight: 28, px: 0.75, fontSize: '0.7rem' }}
+              >
+                {showAllRows ? 'Virtualize rows' : 'Show all rows'}
+              </Button>
+            )}
           </Box>
           <TextField
             size="small"
@@ -84,9 +134,17 @@ export default function DataTable({ tableData }: DataTableProps) {
           </div>
         ) : (
           <>
-            {/* Desktop: full table */}
-            <div className="hidden min-h-0 flex-1 overflow-auto rounded-md border border-[var(--border)] bg-[var(--surface)] sm:block">
-              <table className="w-full min-w-[34rem] border-collapse text-[13px]">
+            {!isMobile ? (
+              <div
+                ref={tableViewportRef}
+                onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+                className="min-h-0 flex-1 overflow-auto rounded-md border border-[var(--border)] bg-[var(--surface)]"
+              >
+              <table
+                className="w-full min-w-[34rem] border-collapse text-[13px]"
+                aria-rowcount={rows.length}
+                aria-colcount={tableData.columns.length}
+              >
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-[var(--surface-2)]">
                     {tableData.columns.map((column, i) => (
@@ -100,15 +158,24 @@ export default function DataTable({ tableData }: DataTableProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, rowIndex) => (
+                  {renderedRange.start > 0 && (
+                    <tr aria-hidden>
+                      <td colSpan={tableData.columns.length} className="p-0" style={{ height: renderedRange.start * DESKTOP_ROW_HEIGHT }} />
+                    </tr>
+                  )}
+                  {desktopRows.map((row, visibleIndex) => {
+                    const rowIndex = renderedRange.start + visibleIndex
+                    return (
                     <tr
                       key={rowIndex}
+                      aria-rowindex={rowIndex + 2}
+                      style={{ height: DESKTOP_ROW_HEIGHT }}
                       className="border-t border-[var(--border)]/60 transition-colors hover:bg-[var(--surface-2)]"
                     >
                       {row.map((cell, cellIndex) => (
                         <td
                           key={`${rowIndex}-${cellIndex}`}
-                          className={`px-3 py-1.5 ${
+                          className={`whitespace-nowrap px-3 py-1.5 ${
                             columnIsNumeric[cellIndex]
                               ? 'mono tabular-nums text-right text-[var(--ink)]'
                               : 'text-left text-[var(--ink-2)]'
@@ -118,14 +185,20 @@ export default function DataTable({ tableData }: DataTableProps) {
                         </td>
                       ))}
                     </tr>
-                  ))}
+                    )
+                  })}
+                  {renderedRange.end < rows.length && (
+                    <tr aria-hidden>
+                      <td colSpan={tableData.columns.length} className="p-0" style={{ height: (rows.length - renderedRange.end) * DESKTOP_ROW_HEIGHT }} />
+                    </tr>
+                  )}
                 </tbody>
               </table>
-            </div>
+              </div>
 
-            {/* Mobile: stacked records — every column visible, no side-scroll */}
-            <div className="min-h-0 flex-1 space-y-2 overflow-auto sm:hidden">
-              {rows.map((row, rowIndex) => (
+            ) : (
+            <div className="min-h-0 flex-1 space-y-2 overflow-auto">
+              {mobileRows.map((row, rowIndex) => (
                 <div key={rowIndex} className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
                   {tableData.columns.map((col, ci) => (
                     <div key={ci} className="flex items-baseline justify-between gap-3 py-0.5">
@@ -141,7 +214,18 @@ export default function DataTable({ tableData }: DataTableProps) {
                   ))}
                 </div>
               ))}
+              {mobileVisibleCount < rows.length && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setMobileVisibleCount((count) => Math.min(count + MOBILE_PAGE_SIZE, rows.length))}
+                >
+                  Show {Math.min(MOBILE_PAGE_SIZE, rows.length - mobileVisibleCount)} more rows
+                </Button>
+              )}
             </div>
+            )}
           </>
         )}
       </Box>

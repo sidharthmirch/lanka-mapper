@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type KeyboardEvent, type ReactNode, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type PointerEvent } from 'react'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import CloseIcon from '@mui/icons-material/Close'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
@@ -25,6 +25,8 @@ export default function FloatingPanel({ className, onClose, label, children }: F
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const panelRef = useRef<HTMLDivElement | null>(null)
   const drag = useRef<{ px: number; py: number; bx: number; by: number } | null>(null)
+  const pendingOffset = useRef<{ x: number; y: number } | null>(null)
+  const dragFrame = useRef<number | null>(null)
 
   const clampOffset = (next: { x: number; y: number }, current = offset) => {
     const panel = panelRef.current
@@ -49,6 +51,36 @@ export default function FloatingPanel({ className, onClose, label, children }: F
     setOffset((current) => clampOffset({ x: current.x + x, y: current.y + y }, current))
   }
 
+  const flushPendingOffset = () => {
+    dragFrame.current = null
+    const next = pendingOffset.current
+    pendingOffset.current = null
+    if (!next) return
+    setOffset((current) => clampOffset(next, current))
+  }
+
+  useEffect(() => () => {
+    if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
+  }, [])
+
+  useEffect(() => {
+    const panel = panelRef.current
+    const container = panel?.parentElement
+    if (!panel || !container) return
+
+    const keepPanelReachable = () => {
+      setOffset((current) => {
+        const next = clampOffset(current, current)
+        return next.x === current.x && next.y === current.y ? current : next
+      })
+    }
+    const observer = new ResizeObserver(keepPanelReachable)
+    observer.observe(container)
+    observer.observe(panel)
+    keepPanelReachable()
+    return () => observer.disconnect()
+  }, [])
+
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     e.preventDefault()
     drag.current = { px: e.clientX, py: e.clientY, bx: offset.x, by: offset.y }
@@ -57,10 +89,17 @@ export default function FloatingPanel({ className, onClose, label, children }: F
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
     if (!d) return
-    setOffset(clampOffset({ x: d.bx + (e.clientX - d.px), y: d.by + (e.clientY - d.py) }))
+    pendingOffset.current = { x: d.bx + (e.clientX - d.px), y: d.by + (e.clientY - d.py) }
+    if (dragFrame.current === null) {
+      dragFrame.current = requestAnimationFrame(flushPendingOffset)
+    }
   }
   const endDrag = (e: PointerEvent<HTMLButtonElement>) => {
     drag.current = null
+    if (dragFrame.current !== null) {
+      cancelAnimationFrame(dragFrame.current)
+      flushPendingOffset()
+    }
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* released */ }
   }
   const onDragKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {

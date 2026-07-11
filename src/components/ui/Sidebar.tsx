@@ -243,6 +243,7 @@ export default function Sidebar({
   const setAccentTone = useAppStore((s) => s.setAccentTone)
   const setGradientPresetId = useAppStore((s) => s.setGradientPresetId)
   const [themeSectionOpen, setThemeSectionOpen] = useState(false)
+  const [layersSectionOpen, setLayersSectionOpen] = useState(false)
 
   const filteredDatasets = useMemo(() => {
     const tabFiltered = currentTab === 'map'
@@ -352,6 +353,15 @@ export default function Sidebar({
   }, [currentDatasetLevel, additive])
 
   const showRandom = currentTab !== 'sources' && onRandomPick
+  const enabledLayerCount = [
+    showChoropleth,
+    showCentroids,
+    showRivers,
+    showBasins,
+    showPlants,
+    showGrid,
+    showCebLive,
+  ].filter(Boolean).length
 
   useEffect(() => {
     if (!isMobile || !open) return
@@ -373,7 +383,11 @@ export default function Sidebar({
       dialogRef.current?.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ) ?? [],
-    ).filter((element) => !element.hasAttribute('hidden'))
+    ).filter((element) => (
+      !element.hasAttribute('hidden')
+      && element.getClientRects().length > 0
+      && window.getComputedStyle(element).visibility !== 'hidden'
+    ))
     if (focusable.length === 0) return
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
@@ -690,8 +704,28 @@ export default function Sidebar({
 
               {currentTab === 'map' && (
                 <Box className="space-y-1 border-t border-[var(--border)]/70 pt-3">
-                  <span className="term-label">Layers</span>
+                  <ButtonBase
+                    type="button"
+                    onClick={() => setLayersSectionOpen((open) => !open)}
+                    aria-expanded={layersSectionOpen}
+                    className="flex w-full items-center justify-between rounded-md px-1 py-1 text-left hover:bg-[var(--surface)]"
+                    sx={{ color: 'var(--ink)' }}
+                  >
+                    <span className="term-label">Layers</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="mono text-[10px] text-[var(--ink-3)]">{enabledLayerCount} active</span>
+                      <ExpandMoreIcon
+                        sx={{
+                          fontSize: 18,
+                          transition: 'transform 0.2s ease',
+                          transform: layersSectionOpen ? 'none' : 'rotate(180deg)',
+                        }}
+                      />
+                    </span>
+                  </ButtonBase>
 
+                  <Collapse in={layersSectionOpen}>
+                  <Box className="mt-2 space-y-1">
                   {availableAdminLevels.length > 1 && (
                     <Box className="mt-2">
                       <Box className="mb-1.5 flex items-center gap-1.5 px-0.5">
@@ -854,6 +888,8 @@ export default function Sidebar({
                       </Box>
                     </Box>
                   )}
+                  </Box>
+                  </Collapse>
                 </Box>
               )}
 

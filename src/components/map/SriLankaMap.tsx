@@ -60,6 +60,10 @@ interface RegionProperties {
 
 type RegionFeature = Feature<Geometry, RegionProperties>
 
+type PendingTooltipMove =
+  | { kind: 'region'; featureKey: string; x: number; y: number }
+  | { kind: 'centroid'; districtName: string; x: number; y: number }
+
 const SRI_LANKA_CENTER: [number, number] = [7.8731, 80.7718]
 const DEFAULT_ZOOM = 8
 /** A generous water margin keeps the map island-focused without a hard edge. */
@@ -324,6 +328,8 @@ export default function SriLankaMap({
   const [provinceGeojson, setProvinceGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
   const [districtGeojson, setDistrictGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
   const [cityGeojson, setCityGeojson] = useState<FeatureCollection<Geometry, RegionProperties> | null>(null)
+  const [cityGeojsonLoading, setCityGeojsonLoading] = useState(false)
+  const [cityBreakdownRequested, setCityBreakdownRequested] = useState(false)
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null)
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
@@ -331,6 +337,37 @@ export default function SriLankaMap({
   const lastHoveredRef = useRef<L.Layer | null>(null)
   /** When set, centroid marker owns the tooltip; polygon hover must not overwrite it. */
   const centroidHoverRef = useRef<string | null>(null)
+  const citiesByDistrictRef = useRef<Map<string, string[]>>(new Map())
+  const pendingTooltipMoveRef = useRef<PendingTooltipMove | null>(null)
+  const tooltipMoveFrameRef = useRef<number | null>(null)
+
+  const flushTooltipMove = () => {
+    tooltipMoveFrameRef.current = null
+    const pending = pendingTooltipMoveRef.current
+    pendingTooltipMoveRef.current = null
+    if (!pending) return
+
+    setHoverTooltip((previous) => {
+      if (!previous) return previous
+      const matches = pending.kind === 'region'
+        ? !previous.centroid
+          && `${previous.provinceName ?? ''}|${previous.districtName ?? ''}|${previous.cityName ?? ''}` === pending.featureKey
+        : previous.centroid && previous.districtName === pending.districtName
+      if (!matches || (previous.x === pending.x && previous.y === pending.y)) return previous
+      return { ...previous, x: pending.x, y: pending.y }
+    })
+  }
+
+  const queueTooltipMove = (next: PendingTooltipMove) => {
+    pendingTooltipMoveRef.current = next
+    if (tooltipMoveFrameRef.current === null) {
+      tooltipMoveFrameRef.current = requestAnimationFrame(flushTooltipMove)
+    }
+  }
+
+  useEffect(() => () => {
+    if (tooltipMoveFrameRef.current !== null) cancelAnimationFrame(tooltipMoveFrameRef.current)
+  }, [])
 
   /**
    * The choropleth GeoJSON layer is intentionally NOT remounted on every
@@ -378,17 +415,19 @@ export default function SriLankaMap({
     return () => { cancelled = true }
   }, [renderLevel, showCentroids, districtGeojson])
 
-  // City outlines: painting cities, or the district→cities hover breakdown
-  // (loaded once for any mappable level so district hover can list its towns).
+  // City outlines are the largest boundary layer. Defer their transfer until
+  // city view is entered, or until a district hover requests its city breakdown.
   useEffect(() => {
-    if (cityGeojson) return
+    if (!(renderLevel === 'city' || cityBreakdownRequested) || cityGeojson) return
     let cancelled = false
+    setCityGeojsonLoading(true)
     void fetch(`${PUBLIC_BASE_PATH}/data/sri-lanka-cities.geojson`)
       .then((res) => res.json() as Promise<FeatureCollection<Geometry, RegionProperties>>)
       .then((collection) => { if (!cancelled) setCityGeojson(collection) })
       .catch(() => undefined)
+      .finally(() => { if (!cancelled) setCityGeojsonLoading(false) })
     return () => { cancelled = true }
-  }, [renderLevel, cityGeojson])
+  }, [renderLevel, cityBreakdownRequested, cityGeojson])
 
   const activeChoroplethGeojson = renderLevel === 'province'
     ? provinceGeojson
@@ -438,6 +477,10 @@ export default function SriLankaMap({
     map.forEach((list) => list.sort((a, b) => a.localeCompare(b)))
     return map
   }, [cityFeatureSource])
+
+  useEffect(() => {
+    citiesByDistrictRef.current = citiesByDistrict
+  }, [citiesByDistrict])
 
   // Keep refs in sync so GeoJSON event handlers (attached once per layer
   // mount via onEachFeature) always read current values without needing
@@ -621,7 +664,8 @@ export default function SriLankaMap({
             const districts = PROVINCE_TO_DISTRICTS[labels.province] ?? []
             if (districts.length) breakdown = { label: 'Districts', items: districts }
           } else if (renderLevel === 'district' && labels.district) {
-            const cities = citiesByDistrict.get(labels.district.toLowerCase()) ?? []
+            if (!cityGeojson) setCityBreakdownRequested(true)
+            const cities = citiesByDistrictRef.current.get(labels.district.toLowerCase()) ?? []
             if (cities.length) breakdown = { label: 'Cities', items: cities }
           }
           setHoverTooltip({
@@ -638,12 +682,8 @@ export default function SriLankaMap({
       },
       mousemove: (event: LeafletMouseEvent) => {
         if (!showTooltipsRef.current) return
-        setHoverTooltip((prev) => {
-          if (!prev || prev.centroid) return prev
-          const prevKey = `${prev.provinceName ?? ''}|${prev.districtName ?? ''}|${prev.cityName ?? ''}`
-          if (prevKey !== featureKey) return prev
-          return { ...prev, ...clampPoint(event) }
-        })
+        const { x, y } = clampPoint(event)
+        queueTooltipMove({ kind: 'region', featureKey, x, y })
       },
       mouseout: (event: LeafletMouseEvent) => {
         const target = event.target as L.Path
@@ -788,17 +828,10 @@ export default function SriLankaMap({
                   if (!showTooltips) {
                     return
                   }
-                  setHoverTooltip((prev) => {
-                    if (!prev || prev.districtName !== districtName || !prev.centroid) {
-                      return prev
-                    }
-                    const mapSize = e.target._map?.getSize()
-                    return {
-                      ...prev,
-                      x: mapSize ? Math.min(e.containerPoint.x, Math.max(0, mapSize.x - TOOLTIP_MAX_W)) : e.containerPoint.x,
-                      y: mapSize ? Math.min(e.containerPoint.y, Math.max(0, mapSize.y - TOOLTIP_MAX_H)) : e.containerPoint.y,
-                    }
-                  })
+                  const mapSize = e.target._map?.getSize()
+                  const x = mapSize ? Math.min(e.containerPoint.x, Math.max(0, mapSize.x - TOOLTIP_MAX_W)) : e.containerPoint.x
+                  const y = mapSize ? Math.min(e.containerPoint.y, Math.max(0, mapSize.y - TOOLTIP_MAX_H)) : e.containerPoint.y
+                  queueTooltipMove({ kind: 'centroid', districtName, x, y })
                 },
                 mouseout: () => {
                   centroidHoverRef.current = null
@@ -809,6 +842,17 @@ export default function SriLankaMap({
           )
         })}
       </MapContainer>
+
+      {renderLevel === 'city' && cityGeojsonLoading && !cityGeojson && (
+        <div
+          role="status"
+          className="pointer-events-none absolute inset-0 z-[805] flex items-center justify-center bg-[var(--bg)]/30 backdrop-blur-[1px]"
+        >
+          <span className="rounded-md border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-2 text-[11px] font-semibold text-[var(--ink-2)] shadow-[var(--shadow-md)]">
+            Loading city boundaries…
+          </span>
+        </div>
+      )}
 
       {mapInstance && (
         <button

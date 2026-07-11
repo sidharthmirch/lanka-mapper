@@ -13,6 +13,7 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Label,
   Line,
   LineChart,
   Pie,
@@ -134,14 +135,14 @@ export default function TimeSeriesChart({
     const targetYear = filteredYears[filteredYears.length - 1] ?? sortedYears[sortedYears.length - 1]
     if (!targetYear) return []
 
-    return names
+    return effectiveNames
       .map((name) => ({
         name,
         value: seriesData[name]?.[targetYear] ?? 0,
       }))
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value)
-  }, [names, seriesData, filteredYears, sortedYears])
+  }, [effectiveNames, seriesData, filteredYears, sortedYears])
 
   if (names.length === 0) {
     return (
@@ -172,7 +173,7 @@ export default function TimeSeriesChart({
   }
 
   const axisTick = { fontSize: 11, fill: chrome.tick, fontFamily: MONO }
-  const lineEmpty = plotMode === 'line' && effectiveNames.length === 0
+  const emptySelection = effectiveNames.length === 0
 
   return (
     <Box className="h-full p-4 sm:p-5">
@@ -211,8 +212,8 @@ export default function TimeSeriesChart({
           </Box>
         </Box>
 
-        <Box className="min-h-0 flex-1">
-          {lineEmpty && (
+        <Box className="min-h-[280px] flex-1 sm:min-h-[340px]">
+          {emptySelection && (
             <Box className="flex h-full min-h-[320px] items-center justify-center rounded-md border border-dashed border-[var(--border-2)] bg-[var(--surface-2)] px-6 text-center">
               <Box>
                 <span className="term-label">No series selected</span>
@@ -223,7 +224,7 @@ export default function TimeSeriesChart({
             </Box>
           )}
 
-          {plotMode === 'line' && !lineEmpty && (
+          {plotMode === 'line' && !emptySelection && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={lineChartData} margin={{ left: 6, right: 8, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={chrome.grid} />
@@ -246,7 +247,7 @@ export default function TimeSeriesChart({
             </ResponsiveContainer>
           )}
 
-          {plotMode === 'bar' && (
+          {plotMode === 'bar' && !emptySelection && (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={categoricalData.slice(0, 30)}
@@ -266,7 +267,7 @@ export default function TimeSeriesChart({
             </ResponsiveContainer>
           )}
 
-          {plotMode === 'pie' && (
+          {plotMode === 'pie' && !emptySelection && (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -280,12 +281,16 @@ export default function TimeSeriesChart({
                   paddingAngle={2}
                   stroke={chrome.tooltipBg}
                   strokeWidth={2}
-                  label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} (${((props.percent ?? 0) * 100).toFixed(1)}%)`}
-                  labelLine={{ strokeWidth: 1, stroke: chrome.grid }}
                 >
                   {categoricalData.map((_, index) => (
                     <Cell key={index} fill={series[index % series.length]} />
                   ))}
+                  <Label
+                    value={`${categoricalData.length} categories`}
+                    position="center"
+                    fill={chrome.tick}
+                    style={{ fontFamily: MONO, fontSize: 11 }}
+                  />
                 </Pie>
                 <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
                 <Legend wrapperStyle={{ fontSize: 11, color: chrome.tick }} />

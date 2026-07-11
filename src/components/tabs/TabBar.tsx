@@ -4,16 +4,12 @@ import { useMemo, useState, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import {
   Autocomplete,
-  IconButton,
   Chip,
-  Switch,
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material'
-import ShuffleIcon from '@mui/icons-material/Shuffle'
 import type { AppTab, DatasetManifestEntry } from '@/types'
 import { sourceShortLabel } from '@/lib/sourceLabels'
 
@@ -22,12 +18,6 @@ interface TabBarProps {
   onTabChange: (tab: AppTab) => void
   datasetManifest: DatasetManifestEntry[]
   onSelectDataset: (dataset: DatasetManifestEntry) => void
-  sidebarOpen: boolean
-  showRandom: boolean
-  randomDisabled: boolean
-  onRandomPick: () => void
-  showChoropleth: boolean
-  onToggleChoropleth: (show: boolean) => void
   /** When true, renders as the bottom row inside CommandSurface (no outer chrome). */
   embedded?: boolean
 }
@@ -83,12 +73,6 @@ export default function TabBar({
   onTabChange,
   datasetManifest,
   onSelectDataset,
-  sidebarOpen,
-  showRandom,
-  randomDisabled,
-  onRandomPick,
-  showChoropleth,
-  onToggleChoropleth,
   embedded = false,
 }: TabBarProps) {
   const [inputValue, setInputValue] = useState('')
@@ -122,10 +106,6 @@ export default function TabBar({
     }
     return fuse.search(q).map((r) => r.item).slice(0, MAX_FUSE_RESULTS)
   }, [fuse, inputValue, sortedManifest])
-
-  // Quick actions when the sidebar is collapsed: random pick on map / plots /
-  // table (each can shuffle a dataset); region shading is map-only.
-  const showCollapsedActions = !sidebarOpen && currentTab !== 'sources'
 
   const shellClass = embedded
     ? 'w-full shrink-0 px-2.5 py-1.5 text-[var(--on-surface)] sm:px-3'
@@ -179,37 +159,6 @@ export default function TabBar({
           ))}
         </Tabs>
 
-        {showCollapsedActions && (
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-md bg-[var(--surface-2)]/60 px-1 py-0.5">
-            {showRandom && (
-              <Tooltip title="Random dataset">
-                <span>
-                  <IconButton
-                    type="button"
-                    size="small"
-                    color="secondary"
-                    onClick={onRandomPick}
-                    disabled={randomDisabled}
-                    aria-label="Random dataset"
-                    className="bg-[var(--surface)]/80"
-                  >
-                    <ShuffleIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
-            {currentTab === 'map' && (
-              <Tooltip title="Region shading">
-                <Switch
-                  size="small"
-                  checked={showChoropleth}
-                  onChange={(_, checked) => onToggleChoropleth(checked)}
-                  inputProps={{ 'aria-label': 'Region shading' }}
-                />
-              </Tooltip>
-            )}
-          </div>
-        )}
         </div>
 
         <Autocomplete

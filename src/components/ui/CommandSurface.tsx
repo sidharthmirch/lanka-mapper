@@ -20,12 +20,6 @@ export interface CommandSurfaceProps {
   onTabChange: (tab: AppTab) => void
   datasetManifest: DatasetManifestEntry[]
   onSelectDataset: (dataset: DatasetManifestEntry) => void
-  sidebarOpen: boolean
-  showRandom: boolean
-  randomDisabled: boolean
-  onRandomPick: () => void
-  showChoropleth: boolean
-  onToggleChoropleth: (show: boolean) => void
 }
 
 /**
@@ -48,12 +42,6 @@ export default function CommandSurface({
   onTabChange,
   datasetManifest,
   onSelectDataset,
-  sidebarOpen,
-  showRandom,
-  randomDisabled,
-  onRandomPick,
-  showChoropleth,
-  onToggleChoropleth,
 }: CommandSurfaceProps) {
   return (
     <header
@@ -80,12 +68,6 @@ export default function CommandSurface({
         onTabChange={onTabChange}
         datasetManifest={datasetManifest}
         onSelectDataset={onSelectDataset}
-        sidebarOpen={sidebarOpen}
-        showRandom={showRandom}
-        randomDisabled={randomDisabled}
-        onRandomPick={onRandomPick}
-        showChoropleth={showChoropleth}
-        onToggleChoropleth={onToggleChoropleth}
         embedded
       />
     </header>
