@@ -44,7 +44,7 @@ export default function FloatingPanel({ className, onClose, label, children }: F
       className={className}
       style={offset.x || offset.y ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
     >
-      <div className="mb-1 flex items-center justify-between gap-1">
+      <div className="map-overlay-handle mb-0.5 flex items-center justify-between gap-1 rounded-t-md bg-[var(--surface)]/88 px-0.5 backdrop-blur-sm">
         <button
           type="button"
           aria-label={`Drag ${label}`}

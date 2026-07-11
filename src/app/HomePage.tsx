@@ -15,10 +15,10 @@ import {
 import { motion } from 'framer-motion'
 import { useShallow } from 'zustand/react/shallow'
 import Sidebar from '@/components/ui/Sidebar'
-import TerminalStatusBar from '@/components/ui/TerminalStatusBar'
+import CommandSurface from '@/components/ui/CommandSurface'
 import { useAppStore } from '@/store'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
-import TabBar from '@/components/tabs/TabBar'
+import RankingsChart from '@/components/tabs/RankingsChart'
 import TimeSeriesChart from '@/components/tabs/TimeSeriesChart'
 import DataTable from '@/components/tabs/DataTable'
 import SourcesContent from '@/components/tabs/SourcesContent'
@@ -195,6 +195,8 @@ export default function HomePage() {
   const setSelectedMetric = useAppStore((s) => s.setSelectedMetric)
 
   const [mounted, setMounted] = useState(false)
+  /** Floating "Top Regions" card can be closed (restored via the on-map chip). */
+  const [rankingsHidden, setRankingsHidden] = useState(false)
   const [mapPlaybackActive, setMapPlaybackActive] = useState(false)
   const [mapPlaybackSpeed, setMapPlaybackSpeed] = useState<MapPlaybackSpeed>(1)
   const [mapPlaybackLoop, setMapPlaybackLoop] = useState(false)
@@ -260,6 +262,17 @@ export default function HomePage() {
     }
     return top.value > 0 ? { name: top.name, value: top.value } : null
   }, [rankingsData])
+
+  const handleRankingsSelect = useCallback(
+    (name: string) => {
+      if (currentDatasetLevel === 'province') {
+        selectProvince(name)
+      } else {
+        selectDistrict(name)
+      }
+    },
+    [currentDatasetLevel, selectDistrict, selectProvince],
+  )
 
   const years = useMemo(
     () => activeDataset?.years ?? [currentYear],
@@ -569,9 +582,9 @@ export default function HomePage() {
       <ErrorBoundary>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <Box className="app-shell relative h-[100dvh] w-screen overflow-hidden" role="main">
-          <Box className="flex h-full w-full gap-3 px-3 pb-3 pt-3 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-4">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-              <TerminalStatusBar
+          <Box className="flex h-full w-full gap-2 px-2 pb-2 pt-2 sm:gap-3 sm:px-3 sm:pb-3 sm:pt-3 md:gap-3 md:px-3 md:pb-3 md:pt-3">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
+              <CommandSurface
                 datasetName={activeDataset?.name ?? null}
                 source={currentDatasetSource}
                 topName={headlineStat?.name ?? null}
@@ -583,19 +596,23 @@ export default function HomePage() {
                 onSync={() => void initializeCatalog(true)}
                 isDark={isDarkMode}
                 onToggleTheme={() => setThemeMode(isDarkMode ? 'light' : 'dark')}
-              />
-              <TabBar
                 currentTab={currentTab}
                 onTabChange={setCurrentTab}
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
+                sidebarOpen={sidebarOpen}
+                showRandom={currentTab === 'map' || currentTab === 'plots' || currentTab === 'table'}
+                randomDisabled={randomPickDisabled}
+                onRandomPick={handleRandomPick}
+                showChoropleth={showChoropleth}
+                onToggleChoropleth={setShowChoropleth}
               />
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.45 }}
                 id="main-content"
-                className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/80 shadow-[var(--shadow-lg)]"
+                className="data-canvas relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md bg-[var(--bg)]"
                 aria-label="Main content"
               >
               {currentTab === 'map' && (
@@ -630,6 +647,33 @@ export default function HomePage() {
                         This dataset isn’t mapped. Use the Plots or Table tabs.
                       </Typography>
                     </Box>
+                  )}
+
+                  {data && data.length > 0 && !rankingsHidden && (
+                    <FloatingPanel
+                      label="Top Regions"
+                      onClose={() => setRankingsHidden(true)}
+                      className="absolute left-3 top-3 z-[850] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]"
+                    >
+                      <RankingsChart
+                        data={rankingsData}
+                        unit={currentDatasetUnit}
+                        onSelect={handleRankingsSelect}
+                        playbackActive={mapPlaybackActive}
+                        animationDurationMs={mapPlaybackFrameMs}
+                      />
+                    </FloatingPanel>
+                  )}
+
+                  {data && data.length > 0 && rankingsHidden && (
+                    <button
+                      type="button"
+                      onClick={() => setRankingsHidden(false)}
+                      className="absolute left-3 top-3 z-[850] flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] md:left-4 md:top-4"
+                    >
+                      <span className="term-label">Top Regions</span>
+                      <span aria-hidden className="text-[13px] leading-none">+</span>
+                    </button>
                   )}
 
                   {data && data.length > 0 && showChoropleth && (
@@ -733,8 +777,10 @@ export default function HomePage() {
               showGrid={showGrid}
               showBasins={showBasins}
               showCebLive={showCebLive}
+              colorScale={colorScale}
               datasetManifest={datasetManifest}
               totalDatasets={catalogCounts.total}
+              catalogCounts={catalogCounts}
               lastCatalogSyncLabel={formatSyncTime(lastCatalogSync)}
               catalogLoading={catalogLoading}
               onCatalogSync={() => void initializeCatalog(true)}

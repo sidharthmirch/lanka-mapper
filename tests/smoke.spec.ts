@@ -21,11 +21,11 @@ test('T2: Live catalog exposes 150+ datasets', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  // The terminal status bar reports the catalog size as "{N} SETS".
+  // The command surface reports catalog size as "{N} SETS".
   await expect
     .poll(
       async () => {
-        const t = (await page.getByTestId('terminal-status-bar').textContent()) ?? ''
+        const t = (await page.getByTestId('command-surface').textContent()) ?? ''
         const m = t.replace(/,/g, '').match(/(\d+)\s*SETS/i)
         return Number(m?.[1] ?? '0')
       },
