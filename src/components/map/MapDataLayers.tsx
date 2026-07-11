@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { CircleMarker, GeoJSON, Tooltip } from 'react-leaflet'
 import type { Feature, FeatureCollection, Geometry, LineString, MultiPolygon, Point, Polygon } from 'geojson'
 import type { Layer, Path, PathOptions } from 'leaflet'
@@ -75,7 +75,7 @@ function useGeoLayer<T>(url: string, enabled: boolean): FeatureCollection<Geomet
  * power plants by segment. Lines are non-interactive so they never steal hover from
  * the choropleth; plants are clickable points with a capacity tooltip.
  */
-export default function MapDataLayers({ showRivers, showPlants, showGrid, showBasins, isDark }: MapDataLayersProps) {
+const MapDataLayers = memo(function MapDataLayers({ showRivers, showPlants, showGrid, showBasins, isDark }: MapDataLayersProps) {
   const rivers = useGeoLayer<RiverProps>(`${PUBLIC_BASE_PATH}/data/sri-lanka-rivers.geojson`, showRivers)
   const grid = useGeoLayer<GridProps>(`${PUBLIC_BASE_PATH}/data/sri-lanka-grid.geojson`, showGrid)
   const plants = useGeoLayer<PlantProps>(`${PUBLIC_BASE_PATH}/data/sri-lanka-power-plants.geojson`, showPlants)
@@ -191,4 +191,6 @@ export default function MapDataLayers({ showRivers, showPlants, showGrid, showBa
       })}
     </>
   )
-}
+})
+
+export default MapDataLayers

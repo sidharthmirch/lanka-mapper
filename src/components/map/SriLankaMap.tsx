@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleMarker, GeoJSON, MapContainer, TileLayer, ZoomControl, useMap } from 'react-leaflet'
+import { CircleMarker, GeoJSON, MapContainer, ZoomControl, useMap } from 'react-leaflet'
 import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from 'geojson'
 import L from 'leaflet'
 import type { Layer, LeafletMouseEvent, PathOptions, StyleFunction } from 'leaflet'
@@ -60,6 +60,9 @@ type RegionFeature = Feature<Geometry, RegionProperties>
 
 const SRI_LANKA_CENTER: [number, number] = [7.8731, 80.7718]
 const DEFAULT_ZOOM = 8
+/** Keep the map focused on the island instead of exposing the surrounding world. */
+const SRI_LANKA_BOUNDS: L.LatLngBoundsExpression = [[5.75, 79.35], [10.1, 82.2]]
+const SRI_LANKA_FIT_BOUNDS: L.LatLngBoundsExpression = [[5.88, 79.52], [9.98, 82.02]]
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
 function getColorForValue(value: number, scale: ColorScale): string {
@@ -177,33 +180,64 @@ interface MapEdgeResetProps {
  */
 function MapLayoutInvalidate({ layoutEpoch }: { layoutEpoch: boolean }) {
   const map = useMap()
+  const zoomingRef = useRef(false)
 
   useEffect(() => {
     const refresh = () => {
-      map.invalidateSize({ animate: false })
+      if (!zoomingRef.current) map.invalidateSize({ animate: false, pan: false })
     }
-    refresh()
-    let innerRaf = 0
-    const outerRaf = requestAnimationFrame(() => {
-      innerRaf = requestAnimationFrame(refresh)
-    })
-    const timeouts = [60, 180, 360, 520].map((ms) => window.setTimeout(refresh, ms))
+    const frame = requestAnimationFrame(refresh)
+    const settle = window.setTimeout(refresh, 360)
     return () => {
-      cancelAnimationFrame(outerRaf)
-      cancelAnimationFrame(innerRaf)
-      timeouts.forEach(clearTimeout)
+      cancelAnimationFrame(frame)
+      clearTimeout(settle)
     }
-  }, [layoutEpoch, map])
+  }, [layoutEpoch, map, zoomingRef])
 
   useEffect(() => {
     const container = map.getContainer()
     const el = container.parentElement
     if (!el) return
+    let frame = 0
     const ro = new ResizeObserver(() => {
-      map.invalidateSize({ animate: false })
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (!zoomingRef.current) map.invalidateSize({ animate: false, pan: false })
+      })
     })
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(frame)
+      ro.disconnect()
+    }
+  }, [map, zoomingRef])
+
+  useEffect(() => {
+    const onZoomStart = () => { zoomingRef.current = true }
+    const onZoomEnd = () => { zoomingRef.current = false }
+    map.on('zoomstart', onZoomStart)
+    map.on('zoomend', onZoomEnd)
+    return () => {
+      map.off('zoomstart', onZoomStart)
+      map.off('zoomend', onZoomEnd)
+    }
+  }, [map])
+
+  return null
+}
+
+/** Fit the island once after Leaflet has measured its final container. */
+function SriLankaViewport() {
+  const map = useMap()
+
+  useEffect(() => {
+    // Leave room for the persistent bottom timeline so it never covers the
+    // southern coastline on a short or wide map panel.
+    map.fitBounds(SRI_LANKA_FIT_BOUNDS, {
+      animate: false,
+      paddingTopLeft: [20, 20],
+      paddingBottomRight: [20, 150],
+    })
   }, [map])
 
   return null
@@ -644,9 +678,18 @@ export default function SriLankaMap({
       <MapContainer
         center={SRI_LANKA_CENTER}
         zoom={DEFAULT_ZOOM}
+        // A lower floor lets the full coastline remain visible in short or
+        // portrait panels; maxBounds still prevents navigation beyond Sri Lanka.
         minZoom={6}
         maxZoom={14}
+        maxBounds={SRI_LANKA_BOUNDS}
+        maxBoundsViscosity={1}
         zoomControl={false}
+        attributionControl={false}
+        worldCopyJump={false}
+        zoomAnimation={false}
+        fadeAnimation={false}
+        markerZoomAnimation={false}
         /* Canvas renderer: the whole choropleth paints to one canvas instead of
            ~25 SVG <path>s, so pan/zoom no longer repaints every polygon (the
            source of the jerky feel). Hover setStyle still works on canvas. */
@@ -659,25 +702,11 @@ export default function SriLankaMap({
         wheelDebounceTime={30}
         ref={setMapInstance}
         style={{ height: '100%', width: '100%' }}
-        className="rounded-lg"
+        className="sri-lanka-map rounded-lg"
       >
         <ZoomControl position="bottomright" />
         <MapLayoutInvalidate layoutEpoch={sidebarOpen} />
-        {/* Quiet, low-chroma basemap so the warm choropleth is the hero, not the
-            map chrome — consistent with the artifacts hub's map surfaces. */}
-        <TileLayer
-          key={isDarkMode ? 'carto-dark' : 'carto-light'}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url={isDarkMode
-            ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-            : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'}
-          subdomains="abcd"
-          maxZoom={20}
-          /* Smoother pan/zoom: hold extra tiles around the edge so panning
-             doesn't flash blank, and don't re-request tiles mid zoom-animation. */
-          keepBuffer={4}
-          updateWhenZooming={false}
-        />
+        <SriLankaViewport />
 
         {activeChoroplethGeojson && (
           <GeoJSON

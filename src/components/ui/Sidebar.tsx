@@ -21,7 +21,6 @@ import {
   Switch,
   Button,
   Tooltip,
-  Link,
   CircularProgress,
 } from '@mui/material'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
@@ -29,7 +28,9 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import SyncIcon from '@mui/icons-material/Sync'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import type { AppTab, ColorScale, DatasetManifestEntry, DatasetSource, MapAdminLevel, MapData } from '@/types'
+import ShuffleIcon from '@mui/icons-material/Shuffle'
+import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined'
+import type { AppTab, DatasetManifestEntry, DatasetSource, MapAdminLevel, MapData } from '@/types'
 import { formatMetricValue, isDisplayableUnit, isAdditiveUnit } from '@/lib/formatDataValue'
 import { sourceShortLabel, sourceFullLabel } from '@/lib/sourceLabels'
 import { useAppStore } from '@/store'
@@ -65,14 +66,8 @@ interface SidebarProps {
   showPlants: boolean
   showGrid: boolean
   showCebLive: boolean
-  colorScale: ColorScale
   datasetManifest: DatasetManifestEntry[]
   totalDatasets: number
-  catalogCounts: {
-    total: number
-    ldflk: number
-    nuuuwan: number
-  }
   lastCatalogSyncLabel: string
   catalogLoading: boolean
   onCatalogSync: () => void
@@ -129,9 +124,6 @@ function AnimatedMetricText({
 }
 
 const MAX_SIDEBAR_DATASET_OPTIONS = 180
-
-const LDFLK_REPO_URL = 'https://github.com/LDFLK/datasets'
-const LDS_PORTAL_URL = 'https://nuuuwan.github.io/lanka_data_search/'
 
 function getLevelChipStyles(level: 'district' | 'province' | 'national') {
   if (level === 'district') return { label: 'District', className: 'bg-[var(--surface-2)] text-[var(--ink)]' }
@@ -196,10 +188,8 @@ export default function Sidebar({
   showPlants,
   showGrid,
   showCebLive,
-  colorScale,
   datasetManifest,
   totalDatasets,
-  catalogCounts,
   lastCatalogSyncLabel,
   catalogLoading,
   onCatalogSync,
@@ -231,6 +221,8 @@ export default function Sidebar({
   const setAccentTone = useAppStore((s) => s.setAccentTone)
   const setGradientPresetId = useAppStore((s) => s.setGradientPresetId)
   const [themeSectionOpen, setThemeSectionOpen] = useState(false)
+  const [datasetDetailsOpen, setDatasetDetailsOpen] = useState(false)
+  const [referenceLayersOpen, setReferenceLayersOpen] = useState(false)
 
   const filteredDatasets = useMemo(() => {
     const tabFiltered = currentTab === 'map'
@@ -349,11 +341,11 @@ export default function Sidebar({
       transition={{
         layout: { type: 'tween', duration: 0.34, ease: [0.22, 1, 0.36, 1] },
       }}
-      className={`fixed z-[1200] flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] md:relative md:h-full md:shrink-0 ${open ? 'inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-[max(0.75rem,env(safe-area-inset-top))] min-w-0 md:inset-auto md:w-[300px] lg:w-[340px] xl:w-[392px]' : 'right-3 top-[8.25rem] h-[56px] w-[56px] md:inset-auto md:h-full md:w-[56px]'}`}
+      className={`fixed z-[1200] flex flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)] md:relative md:h-full md:shrink-0 ${open ? 'inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-[max(0.75rem,env(safe-area-inset-top))] min-w-0 md:inset-auto md:w-[300px] lg:w-[340px] xl:w-[392px]' : 'right-3 top-[8.25rem] h-auto w-[56px] md:inset-auto md:h-full md:w-[56px]'}`}
       style={{ color: 'var(--ink)' }}
     >
       {!open ? (
-        <Box className="flex h-full min-h-0 flex-col items-center gap-2.5 px-1.5 py-3.5">
+        <Box className="flex h-auto min-h-0 flex-col items-center gap-2.5 px-1.5 py-3.5 md:h-full">
           <Tooltip title="Expand sidebar">
             <IconButton
               onClick={onClose}
@@ -365,6 +357,38 @@ export default function Sidebar({
               <ChevronRightIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          <Box className="flex flex-col items-center gap-2.5">
+            {showRandom && (
+              <Tooltip title="Random dataset">
+                <span>
+                  <IconButton
+                    onClick={onRandomPick}
+                    disabled={randomDisabled}
+                    size="small"
+                    aria-label="Random dataset"
+                    className="border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
+                    sx={{ width: 34, height: 34 }}
+                  >
+                    <ShuffleIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            {currentTab === 'map' && (
+              <Tooltip title="Toggle region shading">
+                <IconButton
+                  onClick={() => onToggleChoropleth(!showChoropleth)}
+                  size="small"
+                  aria-label="Toggle region shading"
+                  className="border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
+                  sx={{ width: 34, height: 34, color: showChoropleth ? 'var(--accent)' : 'var(--ink-2)' }}
+                >
+                  <LayersOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
         </Box>
       ) : (
@@ -387,67 +411,19 @@ export default function Sidebar({
           </Box>
 
           <Box className="flex-1 space-y-5 overflow-y-auto p-5">
-            <Box className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3.5">
-              <span className="term-label">Source Breakdown</span>
-              <Box className="mt-2 flex items-center justify-between gap-3">
-                <Box className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
-                  <Chip
-                    component={Link}
-                    href={LDFLK_REPO_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    clickable
-                    label={`LDFLK ${catalogCounts.ldflk}`}
-                    size="small"
-                    className="bg-[var(--surface)] text-[var(--ink)] font-semibold"
-                  />
-                  <Chip
-                    component={Link}
-                    href={LDS_PORTAL_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    clickable
-                    label={`LDS ${catalogCounts.nuuuwan}`}
-                    size="small"
-                    className="bg-[var(--surface)] text-[var(--ink)] font-semibold"
-                  />
-                </Box>
-                {showRandom && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                    onClick={onRandomPick}
-                    disabled={randomDisabled}
+            <Box className="space-y-3">
+              <Box className="flex items-center gap-2">
+                <FormControl fullWidth size="small" variant="outlined">
+                  <InputLabel className="px-1">Dataset</InputLabel>
+                  <Select
+                    value={currentDataset || ''}
+                    label="Dataset"
+                    onChange={(event) => onDatasetChange(event.target.value)}
                     sx={{
-                      flexShrink: 0,
-                      minHeight: 28,
-                      py: 0,
-                      px: 1.3,
-                      fontSize: '0.7rem',
-                      fontWeight: 650,
                       borderRadius: '8px',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
                     }}
                   >
-                    Random pick
-                  </Button>
-                )}
-              </Box>
-            </Box>
-
-            <Box className="space-y-3">
-              <FormControl fullWidth size="small" variant="outlined">
-                <InputLabel className="px-1">Dataset</InputLabel>
-                <Select
-                  value={currentDataset || ''}
-                  label="Dataset"
-                  onChange={(event) => onDatasetChange(event.target.value)}
-                  sx={{
-                    borderRadius: '8px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border)' },
-                  }}
-                >
                   {filteredDatasets.map((dataset) => {
                     const levelChip = getLevelChipStyles(dataset.level)
                     return (
@@ -487,8 +463,23 @@ export default function Sidebar({
                       </MenuItem>
                     )
                   })}
-                </Select>
-              </FormControl>
+                  </Select>
+                </FormControl>
+                {showRandom && (
+                  <Tooltip title="Random dataset">
+                    <span>
+                      <IconButton
+                        onClick={onRandomPick}
+                        disabled={randomDisabled}
+                        aria-label="Random dataset"
+                        className="shrink-0 border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
+                      >
+                        <ShuffleIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+              </Box>
 
               <Typography variant="caption" className="opacity-60">
                 Showing {filteredDatasets.length.toLocaleString()} dataset(s) for this tab. Use the top search to find any dataset.
@@ -555,52 +546,66 @@ export default function Sidebar({
                 />
               )}
 
-              <Box className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/56 p-3 text-xs space-y-0.5">
-                <div>
-                  Source: <span className="font-semibold">{sourceFullLabel(currentDatasetSource)}</span>
-                </div>
-                <div>
-                  Department: <span className="font-semibold">{currentDatasetSecondarySource || 'N/A'}</span>
-                </div>
-                <div>
-                  Unit:{' '}
-                  <span className="font-semibold">
-                    {isDisplayableUnit(currentDatasetUnit) ? currentDatasetUnit!.trim() : '—'}
-                  </span>
-                </div>
-                {(() => {
-                  const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
-                  if (!activeDs) return null
-                  return (
-                    <>
-                      {activeDs.category && (
-                        <div>Category: <span className="font-semibold">{activeDs.category}</span></div>
-                      )}
-                      {activeDs.originalName && activeDs.originalName !== activeDs.name && (
-                        <div className="opacity-70">
-                          Catalog name: <span className="font-semibold break-words">{activeDs.originalName}</span>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-                {(() => {
-                  const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
-                  if (!activeDs?.citation) return null
-                  return (
-                    <div className="pt-1 opacity-70">
-                      Citation:{' '}
-                      <a
-                        href={activeDs.citationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline font-semibold hover:opacity-100"
-                      >
-                        {activeDs.citation}
-                      </a>
+              <Box className="overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]/56">
+                <ButtonBase
+                  type="button"
+                  className="flex w-full items-center justify-between px-3 py-2 text-left"
+                  onClick={() => setDatasetDetailsOpen((open) => !open)}
+                  aria-expanded={datasetDetailsOpen}
+                  sx={{ color: 'var(--ink)' }}
+                >
+                  <span className="term-label">Dataset details</span>
+                  <ExpandMoreIcon sx={{ fontSize: 18, transform: datasetDetailsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }} />
+                </ButtonBase>
+                <Collapse in={datasetDetailsOpen}>
+                  <Box className="space-y-0.5 border-t border-[var(--border)] px-3 py-2.5 text-xs">
+                    <div>
+                      Source: <span className="font-semibold">{sourceFullLabel(currentDatasetSource)}</span>
                     </div>
-                  )
-                })()}
+                    <div>
+                      Department: <span className="font-semibold">{currentDatasetSecondarySource || 'N/A'}</span>
+                    </div>
+                    <div>
+                      Unit:{' '}
+                      <span className="font-semibold">
+                        {isDisplayableUnit(currentDatasetUnit) ? currentDatasetUnit!.trim() : '—'}
+                      </span>
+                    </div>
+                    {(() => {
+                      const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
+                      if (!activeDs) return null
+                      return (
+                        <>
+                          {activeDs.category && (
+                            <div>Category: <span className="font-semibold">{activeDs.category}</span></div>
+                          )}
+                          {activeDs.originalName && activeDs.originalName !== activeDs.name && (
+                            <div className="opacity-70">
+                              Catalog name: <span className="font-semibold break-words">{activeDs.originalName}</span>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
+                    {(() => {
+                      const activeDs = currentDataset ? datasetManifest.find((d) => d.id === currentDataset) : null
+                      if (!activeDs?.citation) return null
+                      return (
+                        <div className="pt-1 opacity-70">
+                          Citation:{' '}
+                          <a
+                            href={activeDs.citationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline font-semibold hover:opacity-100"
+                          >
+                            {activeDs.citation}
+                          </a>
+                        </div>
+                      )
+                    })()}
+                  </Box>
+                </Collapse>
               </Box>
 
               {currentTab === 'map' && (
@@ -654,6 +659,22 @@ export default function Sidebar({
                     <Switch size="small" checked={showChoropleth} onChange={(_, checked) => onToggleChoropleth(checked)} inputProps={{ 'aria-label': 'Region shading' }} />
                   </Box>
 
+                  <ButtonBase
+                    type="button"
+                    className="mt-1 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface)]/60"
+                    onClick={() => setReferenceLayersOpen((open) => !open)}
+                    aria-expanded={referenceLayersOpen}
+                    sx={{ color: 'var(--ink)' }}
+                  >
+                    <Box className="flex items-center gap-2">
+                      <Typography variant="caption" className="font-semibold opacity-85">Reference layers</Typography>
+                      <Typography variant="caption" className="text-[10px] opacity-55">rivers, energy, basins</Typography>
+                    </Box>
+                    <ExpandMoreIcon sx={{ fontSize: 18, transform: referenceLayersOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }} />
+                  </ButtonBase>
+
+                  <Collapse in={referenceLayersOpen}>
+                  <Box className="mt-1 rounded-md border border-[var(--border)] bg-[var(--surface)]/45 px-1 py-1">
                   <Box className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface)]/60">
                     <Box className="flex items-center gap-2">
                       <span className="h-[3px] w-4 shrink-0 rounded-full" style={{ background: darkMode ? '#5fa8d3' : '#2e6f9e' }} />
@@ -709,31 +730,8 @@ export default function Sidebar({
                     </Box>
                     <Switch size="small" checked={showCebLive} onChange={(_, checked) => onToggleCebLive(checked)} inputProps={{ 'aria-label': 'CEB live mix' }} />
                   </Box>
-
-                  <Box className="mt-3">
-                    <Box className="mb-1 flex items-center justify-between text-[10px] font-semibold opacity-65">
-                      <span>
-                        <AnimatedMetricText
-                          value={Math.round(colorScale.min)}
-                          unit={currentDatasetUnit}
-                          playbackActive={mapPlaybackActive}
-                          durationMs={mapPlaybackFrameMs}
-                        />
-                      </span>
-                      <span>
-                        <AnimatedMetricText
-                          value={Math.round(colorScale.max)}
-                          unit={currentDatasetUnit}
-                          playbackActive={mapPlaybackActive}
-                          durationMs={mapPlaybackFrameMs}
-                        />
-                      </span>
-                    </Box>
-                    <Box
-                      className="h-2 w-full rounded-full"
-                      style={{ background: REGION_SHADING_GRADIENT_CSS }}
-                    />
                   </Box>
+                  </Collapse>
 
                   {currentDatasetLevel === 'national' && (
                     <Typography variant="caption" className="mt-2 block text-amber-600">

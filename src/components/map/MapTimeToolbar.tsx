@@ -7,6 +7,8 @@ import PauseIcon from '@mui/icons-material/Pause'
 import LoopIcon from '@mui/icons-material/Loop'
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious'
 import SkipNextIcon from '@mui/icons-material/SkipNext'
+import RemoveIcon from '@mui/icons-material/Remove'
+import AddIcon from '@mui/icons-material/Add'
 import {
   getTimelinePositionForYear,
   getTimelineYearFromPosition,
@@ -88,6 +90,9 @@ export default function MapTimeToolbar({
   const atFirst = currentIndex <= 0
   const atLast = currentIndex >= sortedYears.length - 1
   const stepDisabled = loading || playbackActive
+  const speedIndex = SPEEDS.indexOf(playbackSpeed)
+  const canSlowDown = speedIndex > 0
+  const canSpeedUp = speedIndex < SPEEDS.length - 1
 
   const sliderMarks = useMemo(() => {
     const labelled = new Set<number>()
@@ -274,35 +279,42 @@ export default function MapTimeToolbar({
           </Tooltip>
         </Box>
 
-        {/* Speed + frame counter, pushed right */}
+        {/* Step speed control: less visual noise than a row of four presets. */}
         <Box className="ml-auto flex items-center gap-2.5">
           <Box
             role="group"
             aria-label="Playback speed"
-            className="flex items-center overflow-hidden rounded-md border border-[var(--border-2)]"
+            className="flex items-center overflow-hidden rounded-md border border-[var(--border-2)] bg-[var(--surface-2)]"
           >
-            {SPEEDS.map((s, i) => {
-              const active = playbackSpeed === s
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  aria-pressed={active}
-                  aria-label={`${s} times speed`}
-                  disabled={loading}
-                  onClick={() => onPlaybackSpeedChange(s)}
-                  className={`tabular-nums px-3 py-2 text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 sm:py-1.5 ${
-                    i > 0 ? 'border-l border-[var(--border-2)]' : ''
-                  } ${
-                    active
-                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                      : 'bg-[var(--surface-2)] text-[var(--ink-3)] hover:text-[var(--ink)]'
-                  }`}
+            <Tooltip title="Slower playback">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Slower playback"
+                  disabled={loading || !canSlowDown}
+                  onClick={() => onPlaybackSpeedChange(SPEEDS[speedIndex - 1])}
+                  sx={{ ...transportButtonSx, width: 30, height: 30, minWidth: 30, border: 'none', borderRadius: 0 }}
                 >
-                  {s}×
-                </button>
-              )
-            })}
+                  <RemoveIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <span className="min-w-9 px-1 text-center tabular-nums text-[11px] font-semibold text-[var(--accent)]">
+              {playbackSpeed}×
+            </span>
+            <Tooltip title="Faster playback">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Faster playback"
+                  disabled={loading || !canSpeedUp}
+                  onClick={() => onPlaybackSpeedChange(SPEEDS[speedIndex + 1])}
+                  sx={{ ...transportButtonSx, width: 30, height: 30, minWidth: 30, border: 'none', borderRadius: 0 }}
+                >
+                  <AddIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Box>
           <span className="hidden tabular-nums text-[10px] tracking-[0.06em] text-[var(--ink-3)] min-[440px]:inline">
             {String(currentIndex + 1).padStart(2, '0')}/{String(sortedYears.length).padStart(2, '0')}
