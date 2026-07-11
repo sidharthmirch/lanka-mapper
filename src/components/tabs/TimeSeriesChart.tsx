@@ -40,6 +40,7 @@ interface TimeSeriesChartProps {
 }
 
 const PIE_MAX_CATEGORIES = 8
+const MAX_PLOT_LINES = 12
 
 const MONO = 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace'
 
@@ -110,6 +111,8 @@ export default function TimeSeriesChart({
     () => orderSeriesByMagnitude(seriesData, effectiveNames),
     [seriesData, effectiveNames],
   )
+  const renderedLineNames = orderedNames.slice(0, MAX_PLOT_LINES)
+  const omittedLineCount = Math.max(0, orderedNames.length - renderedLineNames.length)
 
   const filteredYears = useMemo(
     () => sortedYears.filter((y) => y >= yearRange[0] && y <= yearRange[1]),
@@ -190,6 +193,11 @@ export default function TimeSeriesChart({
             <span className="mono mt-1 block text-[10.5px] text-[var(--ink-3)]">
               {sourceLabel} · {secondarySource || 'N/A'} · {unitCaption}
             </span>
+            {plotMode === 'line' && omittedLineCount > 0 && (
+              <span className="mono mt-1 block text-[10px] text-[var(--ink-3)]">
+                Plotting {renderedLineNames.length} of {orderedNames.length} selected series. Narrow the sidebar selection to add more.
+              </span>
+            )}
             {plotMode === 'bar' && categoricalData.length > 30 && (
               <span className="mono mt-1 block text-[10px] text-[var(--ink-3)]">
                 Showing the top 30 of {categoricalData.length.toLocaleString()} categories
@@ -232,7 +240,7 @@ export default function TimeSeriesChart({
                 <YAxis tick={axisTick} stroke={chrome.grid} label={{ value: yLabel, angle: -90, position: 'insideLeft', offset: 4, style: { fontSize: 10, fill: chrome.tick } }} />
                 <Tooltip {...tooltipProps} formatter={(v, name) => [formatTooltipNumber(v), String(name)]} />
                 <Legend wrapperStyle={{ fontSize: 11, color: chrome.tick }} />
-                {orderedNames.map((name, index) => (
+                {renderedLineNames.map((name, index) => (
                   <Line
                     key={name}
                     dataKey={name}

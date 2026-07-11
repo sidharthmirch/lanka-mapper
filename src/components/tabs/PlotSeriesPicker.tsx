@@ -16,6 +16,7 @@ interface PlotSeriesPickerProps {
 }
 
 const SHOW_FILTER_THRESHOLD = 7
+const ALL_SERIES_CONFIRM_THRESHOLD = 12
 
 /**
  * Compact, finger-friendly series picker for the Plots tab. Long series names
@@ -64,7 +65,16 @@ export default function PlotSeriesPicker({ seriesNames, selected, seriesData, on
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => onChange(seriesNames)}
+            onClick={() => {
+              if (
+                seriesNames.length > ALL_SERIES_CONFIRM_THRESHOLD
+                && typeof window !== 'undefined'
+                && !window.confirm(`Plot all ${seriesNames.length} series? Large selections can slow the chart.`)
+              ) {
+                return
+              }
+              onChange(seriesNames)
+            }}
             disabled={allOn}
             className="mono rounded-[5px] border border-[var(--border-2)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-2)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
           >

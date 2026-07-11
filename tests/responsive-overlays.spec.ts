@@ -75,10 +75,10 @@ test('small map viewport keeps controls from colliding', async ({ page }) => {
   expect(await page.locator('[data-testid="ranking-row"]:visible').count()).toBe(0)
 
   await expect(page.getByRole('button', { name: 'Random dataset' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Toggle region shading' })).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: 'Region shading' }).first()).toBeVisible()
 
   // Expanding the panel reveals the ranking rows.
-  await page.getByRole('button', { name: 'Top Regions' }).click()
+  await page.getByTestId('rankings-panel').getByRole('button', { name: 'Top Regions' }).click()
   await expect
     .poll(() => page.locator('[data-testid="ranking-row"]:visible').count(), { timeout: 5000 })
     .toBeGreaterThan(0)
@@ -93,4 +93,35 @@ test('mobile inspector uses dismissible dialog semantics', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Dataset inspector' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Dataset inspector' })).toHaveCount(0)
+})
+
+test('mobile portrait keeps map time card clear of collapsed sidebar rail', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openTimeMapDataset(page)
+
+  const layout = await page.evaluate(() => {
+    const area = (a: DOMRect, b: DOMRect) => {
+      const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+      const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+      return Math.round(x * y)
+    }
+    const playerPanel = document.querySelector('[data-testid="map-time-toolbar"]')
+    const expandButton = document.querySelector('[aria-label="Expand sidebar"]')
+    const sidebarRail = expandButton?.closest('[class*="fixed"]') ?? null
+    if (!playerPanel || !sidebarRail) {
+      return { missing: true, overlap: 0, playerRight: 0, railLeft: 0 }
+    }
+    const playerRect = playerPanel.getBoundingClientRect()
+    const railRect = sidebarRail.getBoundingClientRect()
+    return {
+      missing: false,
+      overlap: area(playerRect, railRect),
+      playerRight: playerRect.right,
+      railLeft: railRect.left,
+    }
+  })
+
+  expect(layout.missing).toBe(false)
+  expect(layout.overlap).toBe(0)
+  expect(layout.playerRight).toBeLessThanOrEqual((layout.railLeft ?? 0) + 1)
 })

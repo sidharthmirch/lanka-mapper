@@ -59,6 +59,6 @@ test('map time toolbar keeps scrubber play loop and step speed controls together
   await expect(toolbar.getByRole('button', { name: 'Play map time animation' })).toBeVisible()
   await expect(toolbar.getByRole('button', { name: 'Enable looping' })).toBeVisible()
   await expect(toolbar.getByRole('slider', { name: 'Timeline year scrubber' })).toBeVisible()
-  await expect(toolbar.getByRole('button', { name: '0.5 times speed' })).toBeVisible()
-  await expect(toolbar.getByRole('button', { name: '2 times speed' })).toBeVisible()
+  await expect(toolbar.getByRole('button', { name: 'Slower playback' })).toBeVisible()
+  await expect(toolbar.getByRole('button', { name: 'Faster playback' })).toBeVisible()
 })

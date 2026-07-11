@@ -377,6 +377,86 @@ export default function Sidebar({
     }
   }, [isMobile, open])
 
+  const statsPanel = loading ? (
+    <Box className="space-y-3">
+      <Skeleton variant="rectangular" height={88} className="rounded-lg" />
+      <Box className="grid grid-cols-2 gap-3">
+        <Skeleton variant="rectangular" height={80} className="rounded-lg" />
+        <Skeleton variant="rectangular" height={80} className="rounded-lg" />
+      </Box>
+      <Skeleton variant="rectangular" height={110} className="rounded-lg" />
+    </Box>
+  ) : stats ? (
+    <Box className="overflow-hidden rounded-md bg-[var(--surface-2)]/45">
+      {maxItem && (
+        <Box className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+          <Box className="min-w-0">
+            <span className="term-label" style={{ color: 'var(--accent)' }}>
+              {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
+            </span>
+            <div className="truncate text-[15px] font-semibold text-[var(--ink)]">
+              {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
+            </div>
+          </Box>
+          <span className="mono shrink-0 text-[15px] font-bold text-[var(--accent)]">
+            <AnimatedMetricText
+              value={maxItem.value}
+              unit={currentDatasetUnit}
+              playbackActive={mapPlaybackActive}
+              durationMs={mapPlaybackFrameMs}
+            />
+          </span>
+        </Box>
+      )}
+
+      <Box className="border-b border-[var(--border)] px-4 py-3">
+        <Box className="flex items-baseline justify-between gap-2">
+          <span className="term-label">{aggregateLabel}</span>
+          <span className="mono text-[10px] text-[var(--ink-3)]">
+            <span className="text-[var(--ink-2)]">{stats.count.toLocaleString()}</span> entries
+          </span>
+        </Box>
+        <Box className="mono mt-1.5 flex items-baseline gap-1.5 break-all leading-none text-[var(--accent)]">
+          <span className="text-[26px] font-bold">
+            <AnimatedMetricText
+              value={additive ? stats.total : stats.avg}
+              unit={null}
+              playbackActive={mapPlaybackActive}
+              durationMs={mapPlaybackFrameMs}
+            />
+          </span>
+          {isDisplayableUnit(currentDatasetUnit) && (
+            <span className="text-[11px] font-semibold text-[var(--ink-3)]">{currentDatasetUnit!.trim()}</span>
+          )}
+        </Box>
+      </Box>
+
+      <Box className="grid grid-cols-3 divide-x divide-[var(--border)]">
+        {((additive
+          ? [['Max', stats.max], ['Avg', stats.avg], ['Min', stats.min]]
+          : [['Max', stats.max], ['Min', stats.min], ['n', stats.count]]) as Array<[string, number]>).map(([label, value]) => (
+          <Box key={label} className="px-3 py-2.5">
+            <span className="term-label">{label}</span>
+            <div className="mono mt-1 break-all text-[15px] font-semibold leading-none text-[var(--ink)]">
+              <AnimatedMetricText
+                value={value}
+                unit={null}
+                playbackActive={mapPlaybackActive}
+                durationMs={mapPlaybackFrameMs}
+              />
+            </div>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  ) : (
+    <Box className="rounded-md border border-dashed border-[var(--border-2)] px-4 py-8 text-center opacity-60">
+      <Typography variant="body2" className="font-semibold">
+        Select a dataset to view statistics.
+      </Typography>
+    </Box>
+  )
+
   const trapMobileDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!isMobile || !open || event.key !== 'Tab') return
     const focusable = Array.from(
@@ -654,7 +734,9 @@ export default function Sidebar({
                 />
               )}
 
-              <Box className="space-y-1 rounded-md bg-[var(--surface-2)]/50 px-3 py-2.5 text-xs">
+              {statsPanel}
+
+              <Box className="space-y-1 rounded-md bg-[var(--surface-2)]/50 px-3 py-2.5 text-[11px] leading-snug">
                 <div>
                   Source: <span className="font-semibold">{sourceFullLabel(currentDatasetSource)}</span>
                 </div>
@@ -911,90 +993,6 @@ export default function Sidebar({
                 View Raw Table
               </Button>
             </Box>
-
-            <Divider className="border-[var(--border)]" />
-
-            {loading ? (
-              <Box className="space-y-3">
-                <Skeleton variant="rectangular" height={88} className="rounded-lg" />
-                <Box className="grid grid-cols-2 gap-3">
-                  <Skeleton variant="rectangular" height={80} className="rounded-lg" />
-                  <Skeleton variant="rectangular" height={80} className="rounded-lg" />
-                </Box>
-                <Skeleton variant="rectangular" height={110} className="rounded-lg" />
-              </Box>
-            ) : stats ? (
-              <Box className="overflow-hidden rounded-md bg-[var(--surface-2)]/45">
-                {maxItem && (
-                  <Box className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-                    <Box className="min-w-0">
-                      <span className="term-label" style={{ color: 'var(--accent)' }}>
-                        {currentDatasetLevel === 'province' ? 'Top province' : currentDatasetLevel === 'district' ? 'Top district' : 'Top entry'}
-                      </span>
-                      <div className="truncate text-[15px] font-semibold text-[var(--ink)]">
-                        {currentDatasetLevel === 'province' ? (maxItem.originalName || maxItem.name) : maxItem.name}
-                      </div>
-                    </Box>
-                    <span className="mono shrink-0 text-[15px] font-bold text-[var(--accent)]">
-                      <AnimatedMetricText
-                        value={maxItem.value}
-                        unit={currentDatasetUnit}
-                        playbackActive={mapPlaybackActive}
-                        durationMs={mapPlaybackFrameMs}
-                      />
-                    </span>
-                  </Box>
-                )}
-
-                {/* Supporting aggregate follows the region users can inspect or select. */}
-                <Box className="border-b border-[var(--border)] px-4 py-3">
-                  <Box className="flex items-baseline justify-between gap-2">
-                    <span className="term-label">{aggregateLabel}</span>
-                    <span className="mono text-[10px] text-[var(--ink-3)]">
-                      <span className="text-[var(--ink-2)]">{stats.count.toLocaleString()}</span> entries
-                    </span>
-                  </Box>
-                  <Box className="mono mt-1.5 flex items-baseline gap-1.5 break-all leading-none text-[var(--accent)]">
-                    <span className="text-[26px] font-bold">
-                      <AnimatedMetricText
-                        value={additive ? stats.total : stats.avg}
-                        unit={null}
-                        playbackActive={mapPlaybackActive}
-                        durationMs={mapPlaybackFrameMs}
-                      />
-                    </span>
-                    {isDisplayableUnit(currentDatasetUnit) && (
-                      <span className="text-[11px] font-semibold text-[var(--ink-3)]">{currentDatasetUnit!.trim()}</span>
-                    )}
-                  </Box>
-                </Box>
-
-                <Box className="grid grid-cols-3 divide-x divide-[var(--border)]">
-                  {((additive
-                    ? [['Max', stats.max], ['Avg', stats.avg], ['Min', stats.min]]
-                    : [['Max', stats.max], ['Min', stats.min], ['n', stats.count]]) as Array<[string, number]>).map(([label, value]) => (
-                    <Box key={label} className="px-3 py-2.5">
-                      <span className="term-label">{label}</span>
-                      <div className="mono mt-1 break-all text-[15px] font-semibold leading-none text-[var(--ink)]">
-                        <AnimatedMetricText
-                          value={value}
-                          unit={null}
-                          playbackActive={mapPlaybackActive}
-                          durationMs={mapPlaybackFrameMs}
-                        />
-                      </div>
-                    </Box>
-                  ))}
-                </Box>
-
-              </Box>
-            ) : (
-              <Box className="text-center py-12 opacity-60">
-                <Typography variant="body2" className="font-semibold">
-                  Select a dataset to view statistics.
-                </Typography>
-              </Box>
-            )}
 
             {(selectedDistrict || selectedProvince) && (() => {
               const selectedName = selectedProvince ?? selectedDistrict!
