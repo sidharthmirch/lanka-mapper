@@ -779,6 +779,15 @@ export default function HomePage() {
               </motion.div>
             </div>
 
+            {isMobileLayout && sidebarOpen && (
+              <button
+                type="button"
+                aria-label="Close dataset inspector"
+                onClick={toggleSidebar}
+                className="fixed inset-0 z-[1190] cursor-default bg-[rgba(15,19,17,0.46)] backdrop-blur-[1px] md:hidden"
+              />
+            )}
+
             <Sidebar
               open={sidebarOpen}
               onClose={toggleSidebar}
