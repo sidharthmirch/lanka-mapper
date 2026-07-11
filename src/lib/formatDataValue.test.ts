@@ -3,6 +3,7 @@ import {
   formatMetricValue,
   getUnitScaleKind,
   isAdditiveUnit,
+  isAdditiveMeasure,
   isDisplayableUnit,
   normalizeUnitLabel,
 } from './formatDataValue'
@@ -67,6 +68,8 @@ describe('formatMetricValue', () => {
     // Per-period currency: the /qualifier attaches with no space.
     expect(formatMetricValue(63030, 'Rs./month', 'comfortable')).toBe(`Rs${NBSP}63,030/month`)
     expect(formatMetricValue(63030, 'Rs./month', 'compact')).toBe(`Rs${NBSP}63K/month`)
+    expect(formatMetricValue(80, 'US$ Mn', 'comfortable')).toBe(`US$${NBSP}80${NBSP}Mn`)
+    expect(formatMetricValue(5800, 'US$ Mn', 'compact')).toBe(`US$${NBSP}5.8B`)
   })
 
   it('still uses K/M for generic units in compact mode', () => {
@@ -116,6 +119,8 @@ describe('normalizeUnitLabel', () => {
     expect(normalizeUnitLabel('Millions')).toBe('Mn')
     expect(normalizeUnitLabel('Mn.')).toBe('Mn')
     expect(normalizeUnitLabel('Rs. million')).toBe('Rs. Mn')
+    expect(normalizeUnitLabel('US Million')).toBe('US$ Mn')
+    expect(normalizeUnitLabel('US$ Million')).toBe('US$ Mn')
     expect(normalizeUnitLabel('Billion')).toBe('Bn')
     expect(normalizeUnitLabel('bn')).toBe('Bn')
     expect(normalizeUnitLabel("' 000")).toBe("'000")
@@ -159,5 +164,13 @@ describe('isAdditiveUnit', () => {
     expect(isAdditiveUnit('price index')).toBe(false)
     expect(isAdditiveUnit('sex ratio')).toBe(false)
     expect(isAdditiveUnit('°C')).toBe(false)
+  })
+})
+
+describe('isAdditiveMeasure', () => {
+  it('does not sum an explicitly rate-like measure when its source omits a unit', () => {
+    expect(isAdditiveMeasure('', 'Unemployment Rate by District')).toBe(false)
+    expect(isAdditiveMeasure(null, 'Consumer Price Index')).toBe(false)
+    expect(isAdditiveMeasure('', 'Population by District')).toBe(true)
   })
 })

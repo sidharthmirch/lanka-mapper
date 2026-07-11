@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Box, Link, Typography } from '@mui/material'
-import { formatMetricValue, isDisplayableUnit } from '@/lib/formatDataValue'
+import { formatMetricValue, isAdditiveMeasure, isDisplayableUnit } from '@/lib/formatDataValue'
 import { getSeriesColors } from '@/lib/uiThemePresets'
 import { orderSeriesByMagnitude } from '@/lib/seriesOrder'
 import { sourceShortLabel } from '@/lib/sourceLabels'
@@ -44,9 +44,9 @@ const MONO = 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace'
 
 type PlotMode = 'line' | 'bar' | 'pie'
 
-function inferPlotMode(years: number[], entityCount: number): PlotMode {
+function inferPlotMode(years: number[], entityCount: number, additive: boolean): PlotMode {
   if (years.length > 1) return 'line'
-  if (entityCount <= PIE_MAX_CATEGORIES) return 'pie'
+  if (additive && entityCount <= PIE_MAX_CATEGORIES) return 'pie'
   return 'bar'
 }
 
@@ -92,9 +92,11 @@ export default function TimeSeriesChart({
     [seriesData],
   )
 
+  const additive = isAdditiveMeasure(unit, datasetName)
+
   const plotMode = useMemo(
-    () => inferPlotMode(sortedYears, names.length),
-    [sortedYears, names.length],
+    () => inferPlotMode(sortedYears, names.length, additive),
+    [sortedYears, names.length, additive],
   )
 
   const effectiveNames = useMemo(() => {

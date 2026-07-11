@@ -51,7 +51,7 @@ export default function DataTable({ tableData }: DataTableProps) {
       <Box className="mx-auto flex h-full max-w-[1300px] flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
         <Box className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Box className="flex items-baseline gap-3">
-            <span className="term-label">Raw Data Table</span>
+            <span className="term-label">Data Table</span>
             <span className="mono text-[11px] text-[var(--ink-3)]">
               {rows.length.toLocaleString()}
               {rows.length !== tableData.rows.length ? ` / ${tableData.rows.length.toLocaleString()}` : ''} rows
@@ -74,6 +74,9 @@ export default function DataTable({ tableData }: DataTableProps) {
             }}
           />
         </Box>
+        <Typography variant="caption" className="mb-3 text-[10.5px] text-[var(--ink-3)]">
+          Display-normalized labels; numeric values and upstream source records are unchanged.
+        </Typography>
 
         {rows.length === 0 ? (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-[var(--border)] text-[13px] text-[var(--ink-3)]">

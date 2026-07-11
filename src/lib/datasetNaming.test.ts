@@ -34,6 +34,14 @@ describe('prettifyDatasetName', () => {
   it('leaves an uncategorizable name as-is with no category', () => {
     expect(prettifyDatasetName('Widget Index')).toEqual({ displayName: 'Widget Index' })
   })
+
+  it('removes an explicit trailing US-dollar scale from the title and resolves its unit', () => {
+    expect(prettifyDatasetName('Inflow of workers Remittances by country US Million')).toEqual({
+      displayName: 'Inflow of Workers Remittances by Country',
+      category: undefined,
+      unit: 'US$ Mn',
+    })
+  })
 })
 
 describe('cleanDatasetName', () => {

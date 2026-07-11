@@ -45,6 +45,7 @@ describe('normalizeProvince', () => {
   it('handles already-canonical inputs', () => {
     expect(normalizeProvince('Western Province')).toBe('Western Province')
     expect(normalizeProvince('Uva Province')).toBe('Uva Province')
+    expect(normalizeProvince('Nothern')).toBe('Northern Province')
   })
 
   it('handles hyphenated and spaced multi-word provinces', () => {

@@ -60,8 +60,8 @@ type RegionFeature = Feature<Geometry, RegionProperties>
 
 const SRI_LANKA_CENTER: [number, number] = [7.8731, 80.7718]
 const DEFAULT_ZOOM = 8
-/** Keep the map focused on the island instead of exposing the surrounding world. */
-const SRI_LANKA_BOUNDS: L.LatLngBoundsExpression = [[5.75, 79.35], [10.1, 82.2]]
+/** A generous water margin keeps the map island-focused without a hard edge. */
+const SRI_LANKA_BOUNDS: L.LatLngBoundsExpression = [[5.05, 78.65], [10.8, 82.85]]
 const SRI_LANKA_FIT_BOUNDS: L.LatLngBoundsExpression = [[5.88, 79.52], [9.98, 82.02]]
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
 
@@ -683,7 +683,8 @@ export default function SriLankaMap({
         minZoom={6}
         maxZoom={14}
         maxBounds={SRI_LANKA_BOUNDS}
-        maxBoundsViscosity={1}
+        // A soft edge avoids the abrupt snap-back when exploring coastal water.
+        maxBoundsViscosity={0.2}
         zoomControl={false}
         attributionControl={false}
         worldCopyJump={false}

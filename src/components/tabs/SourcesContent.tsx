@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/CatalogProviderPills'
 import NadaArchive from './NadaArchive'
 import type { DatasetManifestEntry } from '@/types'
+import { PRESENTATION_TEXT_RULES } from '@/lib/presentationText'
 
 const LDFLK_PORTAL = 'https://ldflk.github.io/datasets/'
 const LDFLK_REPO = 'https://github.com/LDFLK/datasets'
@@ -241,6 +242,27 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
         />
       </Box>
 
+      <Box className="mt-6 rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-4">
+        <Box className="flex items-baseline justify-between gap-3">
+          <span className="term-label">PRESENTATION ADJUSTMENTS</span>
+          <span className="mono text-[10px] text-[var(--ink-3)]">display only</span>
+        </Box>
+        <Typography variant="body2" className="mt-2 max-w-[76ch] text-[12.5px] leading-relaxed text-[var(--ink-2)]">
+          To make maps, charts, and tables readable, this app applies the documented corrections below only when
+          encountered, and only at presentation time. Source values are not rewritten; catalog-title and unit
+          changes are listed beneath each affected dataset when you expand its source.
+        </Typography>
+        <ul className="mt-3 grid gap-x-5 gap-y-1.5 text-[11.5px] text-[var(--ink-2)] sm:grid-cols-2 xl:grid-cols-3">
+          {PRESENTATION_TEXT_RULES.map((rule) => (
+            <li key={rule.from} className="flex min-w-0 items-baseline gap-1.5">
+              <span className="mono shrink-0 text-[var(--ink-3)]">{rule.from}</span>
+              <span aria-hidden="true" className="text-[var(--ink-3)]">→</span>
+              <span className="font-medium text-[var(--ink)]">{rule.to}</span>
+            </li>
+          ))}
+        </ul>
+      </Box>
+
       <Box className="mt-9 flex items-baseline justify-between gap-3">
         <span className="term-label">UPSTREAM AGENCIES &amp; INSTITUTIONS</span>
         <span className="mono text-[10px] text-[var(--ink-3)]">{UPSTREAM_SOURCES.length} sources</span>
@@ -332,6 +354,15 @@ export default function SourcesContent({ datasetManifest, onSelectDataset }: Sou
                                   <span className="block truncate text-[12px] text-[var(--ink)] group-hover:text-[var(--accent)]">{d.name}</span>
                                   {d.originalName && d.originalName !== d.name && (
                                     <span className="block truncate text-[9px] text-[var(--ink-3)]" title={d.originalName}>{d.originalName}</span>
+                                  )}
+                                  {d.presentationChanges && d.presentationChanges.length > 0 && (
+                                    <span className="mt-1 block rounded-[4px] border border-[var(--border)] bg-[var(--surface-2)] px-1.5 py-1 text-[9px] leading-relaxed text-[var(--ink-3)]">
+                                      {d.presentationChanges.map((change) => (
+                                        <span key={`${change.field}-${change.from}-${change.to}`} className="block">
+                                          <span className="uppercase tracking-[0.05em]">{change.field}</span>: {change.from} → {change.to}
+                                        </span>
+                                      ))}
+                                    </span>
                                   )}
                                 </span>
                                 <span className="mono shrink-0 text-[9px] uppercase tracking-[0.06em] text-[var(--ink-3)]">{d.level}</span>

@@ -223,6 +223,17 @@ export default function Sidebar({
   const [themeSectionOpen, setThemeSectionOpen] = useState(false)
   const [datasetDetailsOpen, setDatasetDetailsOpen] = useState(false)
   const [referenceLayersOpen, setReferenceLayersOpen] = useState(false)
+  const referenceLayersSummary = useMemo(() => {
+    const active = [
+      showRivers && 'Rivers',
+      showBasins && 'Basins',
+      showPlants && 'Power plants',
+      showGrid && 'CEB grid',
+      showCebLive && 'Live mix',
+    ].filter((layer): layer is string => Boolean(layer))
+
+    return active.length > 0 ? active.join(' · ') : 'None enabled'
+  }, [showBasins, showCebLive, showGrid, showPlants, showRivers])
 
   const filteredDatasets = useMemo(() => {
     const tabFiltered = currentTab === 'map'
@@ -668,7 +679,9 @@ export default function Sidebar({
                   >
                     <Box className="flex items-center gap-2">
                       <Typography variant="caption" className="font-semibold opacity-85">Reference layers</Typography>
-                      <Typography variant="caption" className="text-[10px] opacity-55">rivers, energy, basins</Typography>
+                      <Typography variant="caption" className="max-w-[13rem] truncate text-[10px] opacity-55" title={referenceLayersSummary}>
+                        {referenceLayersSummary}
+                      </Typography>
                     </Box>
                     <ExpandMoreIcon sx={{ fontSize: 18, transform: referenceLayersOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }} />
                   </ButtonBase>

@@ -90,6 +90,15 @@ export function isAdditiveUnit(unit: string | null | undefined): boolean {
   return !NON_ADDITIVE_RE.test(unit!.trim())
 }
 
+/**
+ * Prefer explicit units, but safely handle sources that omit a scale while
+ * leaving an unmistakable rate/index clue in the measure title.
+ */
+export function isAdditiveMeasure(unit: string | null | undefined, measureLabel?: string): boolean {
+  if (!isAdditiveUnit(unit)) return false
+  return !/\b(rate|ratio|index|share|percentage|percent|per capita|average|mean)\b|%/i.test(measureLabel ?? '')
+}
+
 type UnitScaleKind = 'percent' | 'thousand' | 'million' | 'billion' | 'generic'
 
 /**
@@ -161,9 +170,9 @@ export function normalizeUnitLabel(raw: string | null | undefined): string {
   if (t === '' || PLACEHOLDER_UNIT_RE.test(t)) return ''
   const lower = t.toLowerCase()
   if (t === '%' || lower === 'percent' || lower === 'percentage') return '%'
-  const hasCurrency = /\b(?:rs|lkr)\b/i.test(t)
-  if (/\b(?:bn|billion)\b\.?/i.test(t)) return hasCurrency ? 'Rs. Bn' : 'Bn'
-  if (/\b(?:mn|millions?)\b\.?/i.test(t)) return hasCurrency ? 'Rs. Mn' : 'Mn'
+  const currency = /(?:\b(?:us|usd)\b|us\$)/i.test(t) ? 'US$' : /\b(?:rs|lkr)\b/i.test(t) ? 'Rs.' : ''
+  if (/\b(?:bn|billion)\b\.?/i.test(t)) return currency ? `${currency} Bn` : 'Bn'
+  if (/\b(?:mn|millions?)\b\.?/i.test(t)) return currency ? `${currency} Mn` : 'Mn'
   if (/['’`]\s*0{3}|\bthousands?\b/i.test(t)) return "'000"
   return KNOWN_UNIT_MAP[lower] ?? t
 }
@@ -261,7 +270,7 @@ function unitInputMultiplier(scale: UnitScaleKind): number {
 }
 
 /** Currency tokens we render as a leading symbol (Rs 5.8B), never a trailing label. */
-const CURRENCY_TOKEN_RE = /\b(?:rs|lkr|usd|eur|gbp)\b\.?|[$£€]/i
+const CURRENCY_TOKEN_RE = /\b(?:rs|lkr|usd|eur|gbp)\b\.?|US\$|[$£€]/i
 
 /**
  * Split a unit into its currency symbol (if any) and the remaining label.
@@ -271,7 +280,9 @@ function detectCurrency(unit: string): { symbol: string | null; rest: string } {
   const match = unit.match(CURRENCY_TOKEN_RE)
   if (!match) return { symbol: null, rest: unit }
   const raw = match[0].replace(/\.$/, '')
-  const symbol = /^[a-z]+$/i.test(raw) ? (raw.toLowerCase() === 'rs' ? 'Rs' : raw.toUpperCase()) : raw
+  const symbol = raw.toLowerCase() === 'us$'
+    ? 'US$'
+    : /^[a-z]+$/i.test(raw) ? (raw.toLowerCase() === 'rs' ? 'Rs' : raw.toUpperCase()) : raw
   const rest = unit
     .replace(CURRENCY_TOKEN_RE, '')
     .replace(/\s+/g, ' ')

@@ -4,9 +4,11 @@ import type {
   DistrictData,
   ProvinceData,
   DatasetManifestEntry,
+  DatasetPresentationChange,
 } from '@/types'
 import { normalizeUnitLabel } from '@/lib/formatDataValue'
 import { prettifyDatasetName } from '@/lib/datasetNaming'
+import { normalizePresentationText } from '@/lib/presentationText'
 
 const BASE_URL = 'https://raw.githubusercontent.com/LDFLK/datasets/main/data/statistics'
 const LDFLK_GIT_TREE_URL = 'https://api.github.com/repos/LDFLK/datasets/git/trees/main?recursive=1'
@@ -123,8 +125,9 @@ const DISTRICT_NAME_MAP: Record<string, string> = {
 }
 
 export function normalizeDistrict(name: string): string {
-  const lower = name.toLowerCase().replace(/district\s*$/i, '').trim()
-  return DISTRICT_NAME_MAP[lower] || name
+  const displayName = normalizePresentationText(name)
+  const lower = displayName.toLowerCase().replace(/district\s*$/i, '').trim()
+  return DISTRICT_NAME_MAP[lower] || displayName
 }
 
 const PROVINCE_NAME_MAP: Record<string, string> = {
@@ -132,6 +135,7 @@ const PROVINCE_NAME_MAP: Record<string, string> = {
   central: 'Central Province',
   southern: 'Southern Province',
   northern: 'Northern Province',
+  nothern: 'Northern Province',
   eastern: 'Eastern Province',
   'north western': 'North Western Province',
   'north central': 'North Central Province',
@@ -142,8 +146,9 @@ const PROVINCE_NAME_MAP: Record<string, string> = {
 }
 
 export function normalizeProvince(name: string): string {
-  const lower = name.toLowerCase().replace(/province\s*$/i, '').trim()
-  return PROVINCE_NAME_MAP[lower] || name
+  const displayName = normalizePresentationText(name)
+  const lower = displayName.toLowerCase().replace(/province\s*$/i, '').trim()
+  return PROVINCE_NAME_MAP[lower] || displayName
 }
 
 function normalizeLocationToken(value: string): string {
@@ -260,7 +265,11 @@ function inferLevelFromPath(path: string): 'district' | 'province' | 'national' 
  */
 function inferLdflkUnit(name: string): string {
   const n = name.toLowerCase()
+  if (/\b(?:us\$?|usd)\s*(?:million|mn\.?)\b/i.test(name)) return 'US$ Mn'
+  if (/\b(?:rs\.?|lkr|slrs?)\s*(?:million|mn\.?)\b/i.test(name)) return 'Rs. Mn'
   if (n.includes('%') || /\b(rate|ratio|occupancy|percentage|percent)\b/.test(n)) return '%'
+  if (/\bindex\b/.test(n)) return 'index'
+  if (/\bper capita\b/.test(n)) return 'per capita'
   if (/\b(rooms?|accommodation|accommodations)\b/.test(n)) return 'rooms'
   if (/\b(registration|registrations|registered)\b/.test(n)) return 'registrations'
   if (/\b(population|persons?|people|inhabitants?)\b/.test(n)) return 'persons'
@@ -287,6 +296,29 @@ function normalizeMetricName(metric: string): string {
     .replace(/others/g, 'others')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** Keep source strings for lookup while presenting documented typo corrections. */
+function presentationMetricName(metric: string): string {
+  return normalizePresentationText(metric)
+}
+
+function metricPresentationChanges(metrics: string[]): DatasetPresentationChange[] {
+  return metrics.flatMap((metric) => {
+    const display = presentationMetricName(metric)
+    return display === metric
+      ? []
+      : [{ field: 'metric' as const, from: metric, to: display, reason: 'Corrected a known upstream spelling or style variant.' }]
+  })
+}
+
+function normalizeTabularPresentation(tabular: TabularData): TabularData {
+  return {
+    columns: tabular.columns.map(presentationMetricName),
+    rows: tabular.rows.map((row) => row.map((value) => (
+      typeof value === 'string' ? normalizePresentationText(value) : value
+    ))),
+  }
 }
 
 function getMetricColumnIndices(columns: string[], valueColumn?: string): number[] {
@@ -694,8 +726,8 @@ async function fetchLdfCatalog(options: FetchOptions = {}): Promise<DatasetManif
 }
 
 function formatNuuuwanDatasetName(group: NuuuwanGroup): string {
-  const cat = group.category.replace(/\s+/g, ' ').trim()
-  const baseLabel = toTitleCase(group.baseLabel)
+  const cat = normalizePresentationText(group.category.replace(/\s+/g, ' ').trim())
+  const baseLabel = normalizePresentationText(toTitleCase(group.baseLabel))
 
   if (!cat || cat === 'Uncategorized') {
     return group.level === 'national'
@@ -718,7 +750,8 @@ function buildNuuuwanCatalogEntries(groupsByKey: Record<string, NuuuwanGroup>): 
       const entityKeys = Object.keys(group.valuesByLocation)
         .filter(isUsableSeriesEntityName)
         .sort((a, b) => a.localeCompare(b))
-      const searchHints = entityKeys.slice(0, MAX_SEARCH_HINTS)
+      const searchHints = entityKeys.map(normalizePresentationText).slice(0, MAX_SEARCH_HINTS)
+      const inferredUnit = group.unit || inferLdflkUnit(`${group.category} ${group.baseLabel}`)
 
       return {
         id: `nuuuwan-group-${slugify(group.key)}`,
@@ -728,7 +761,7 @@ function buildNuuuwanCatalogEntries(groupsByKey: Record<string, NuuuwanGroup>): 
           : `${group.category} by ${group.level}.`,
         source: 'nuuuwan' as const,
         secondarySource: group.sourceId.toUpperCase(),
-        unit: group.unit,
+        unit: inferredUnit,
         level: group.level,
         path: `nuuuwan-group:${encodeURIComponent(group.key)}`,
         years: group.years,
@@ -737,6 +770,9 @@ function buildNuuuwanCatalogEntries(groupsByKey: Record<string, NuuuwanGroup>): 
         hasGeo: group.level === 'district' || group.level === 'province',
         hasTime: group.years.length > 1,
         searchHints,
+        ...(!group.unit && inferredUnit
+          ? { presentationChanges: [{ field: 'unit' as const, from: 'No source scale', to: inferredUnit, reason: 'Inferred from an explicit rate, ratio, index, or currency cue in the series title.' }] }
+          : {}),
         tags: [
           'live-catalog',
           group.level,
@@ -799,14 +835,32 @@ async function fetchLocalCatalog(options: FetchOptions = {}): Promise<DatasetMan
     if (!Array.isArray(data)) return []
     const entries: DatasetManifestEntry[] = data.map((entry) => {
       const years = Array.isArray(entry.years) ? entry.years : []
-      const metrics = entry.metrics && entry.metrics.length > 0 ? entry.metrics : ['Value']
+      const rawMetrics = entry.metrics && entry.metrics.length > 0 ? entry.metrics : ['Value']
+      const metrics = rawMetrics.map(presentationMetricName)
+      const rawUnit = entry.unit ?? ''
+      const unit = normalizeUnitLabel(rawUnit)
+      const rawMetricUnits = entry.metricUnits ?? {}
+      const metricUnits = Object.fromEntries(
+        Object.entries(rawMetricUnits).map(([metric, metricUnit]) => [
+          presentationMetricName(metric),
+          normalizeUnitLabel(metricUnit),
+        ]),
+      )
+      const presentationChanges: DatasetPresentationChange[] = [
+        ...(entry.presentationChanges ?? []),
+        ...metricPresentationChanges(rawMetrics),
+        ...(unit !== rawUnit ? [{ field: 'unit' as const, from: rawUnit, to: unit, reason: 'Canonicalized the source unit for consistent plotting and formatting.' }] : []),
+      ]
       return {
         ...entry,
         source: 'local' as const,
         path: entry.path && entry.path.startsWith('local:') ? entry.path : `local:${entry.id}`,
         years,
         metrics,
-        defaultMetric: entry.defaultMetric ?? metrics[0],
+        defaultMetric: presentationMetricName(entry.defaultMetric ?? rawMetrics[0]),
+        unit,
+        ...(Object.keys(metricUnits).length > 0 ? { metricUnits } : {}),
+        ...(presentationChanges.length > 0 ? { presentationChanges } : {}),
         hasGeo: entry.level !== 'national',
         hasTime: entry.hasTime ?? years.length > 1,
       }
@@ -865,7 +919,10 @@ async function fetchLocalDataset(id: string, options: FetchOptions = {}): Promis
 }
 
 function pickLocalMetric(ds: LocalDataset, requested?: string): string {
-  if (requested && ds.metrics.includes(requested)) return requested
+  if (requested) {
+    const selected = ds.metrics.find((metric) => presentationMetricName(metric) === requested)
+    if (selected) return selected
+  }
   return ds.metrics[0] ?? 'Value'
 }
 
@@ -952,10 +1009,28 @@ async function fetchLegacyNuuuwanProvinceData(year: number, category: string, op
  * preserving the original (recoverable + still searchable via searchHints).
  */
 function enrichDatasetName(entry: DatasetManifestEntry): DatasetManifestEntry {
-  const { displayName, category } = prettifyDatasetName(entry.name)
-  if (displayName === entry.name && !category) return entry
+  const { displayName, category, unit } = prettifyDatasetName(entry.name)
+  const resolvedUnit = unit ?? entry.unit
+  const presentationChanges: DatasetPresentationChange[] = [
+    ...(entry.presentationChanges ?? []),
+    ...(displayName !== entry.name
+      ? [{ field: 'title' as const, from: entry.name, to: displayName, reason: 'Simplified casing, source tags, or an embedded unit for a readable catalog title.' }]
+      : []),
+    ...(unit && unit !== entry.unit
+      ? [{ field: 'unit' as const, from: entry.unit, to: unit, reason: 'Moved an explicit unit out of the title so the map and plots format values correctly.' }]
+      : []),
+  ]
+  if (displayName === entry.name && !category && resolvedUnit === entry.unit && presentationChanges.length === 0) return entry
   const searchHints = Array.from(new Set([...(entry.searchHints ?? []), entry.name]))
-  return { ...entry, name: displayName, originalName: entry.name, category, searchHints }
+  return {
+    ...entry,
+    name: displayName,
+    unit: resolvedUnit,
+    originalName: entry.name,
+    category,
+    searchHints,
+    ...(presentationChanges.length > 0 ? { presentationChanges } : {}),
+  }
 }
 
 export async function fetchDatasetCatalog(options: FetchOptions = {}): Promise<DatasetManifestEntry[]> {
@@ -1051,7 +1126,7 @@ export async function fetchDataset(year: number, datasetPath: string, options: F
   if (isLocalPath(datasetPath)) {
     const ds = await fetchLocalDataset(getLocalDatasetId(datasetPath), options)
     if (!ds) return { columns: ['Location', 'Value'], rows: [] }
-    const columns = ['Location', ...ds.metrics]
+    const columns = ['Location', ...ds.metrics.map(presentationMetricName)]
     const rows = Object.entries(ds.valuesByLocation)
       .map(([location, byYear]) => [location, ...ds.metrics.map((m) => byYear[year]?.[m] ?? null)])
       .filter((row) => row.slice(1).some((v) => v !== null))
@@ -1092,8 +1167,9 @@ export async function fetchDataset(year: number, datasetPath: string, options: F
 
   const url = `${BASE_URL}/${year}/${resolvedPath}/data.json`
   const { data } = await axios.get<TabularData>(url)
-  setCache(cacheKey, data)
-  return data
+  const presented = normalizeTabularPresentation(data)
+  setCache(cacheKey, presented)
+  return presented
 }
 
 export async function fetchDistrictData(
@@ -1273,7 +1349,7 @@ export async function fetchDatasetSeries(
     if (!ds) return []
     const m = pickLocalMetric(ds, metric)
     return Object.entries(ds.valuesByLocation).map(([name, byYear]) => ({
-      name,
+      name: normalizePresentationText(name),
       values: Object.fromEntries(
         Object.entries(byYear).map(([y, metricMap]) => [Number(y), Number(metricMap[m] ?? 0)]),
       ),
@@ -1288,7 +1364,7 @@ export async function fetchDatasetSeries(
 
     return Object.entries(group.valuesByLocation)
       .filter(([name]) => isUsableSeriesEntityName(name))
-      .map(([name, values]) => ({ name, values }))
+      .map(([name, values]) => ({ name: normalizePresentationText(name), values }))
   }
 
   const byName = new Map<string, DatasetSeriesPoint>()
@@ -1356,4 +1432,3 @@ export async function inferDatasetLevel(year: number, datasetPath: string, optio
   const dataset = await fetchDataset(year, datasetPath, options)
   return inferTabularLevel(dataset.columns)
 }
-

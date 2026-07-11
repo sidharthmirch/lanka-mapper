@@ -10,6 +10,8 @@
  *   "Unemployment Rate by District"                             → { display: "Unemployment Rate by District", category: "Labour & Employment" }
  */
 
+import { normalizePresentationText } from './presentationText'
+
 /** Connector words lowercased mid-title (never at position 0). */
 const LOWER_WORDS = new Set([
   'of', 'and', 'by', 'in', 'on', 'for', 'to', 'the', 'a', 'an', 'vs', 'per', 'at', 'with', 'from',
@@ -43,12 +45,15 @@ function recase(word: string, index: number): string {
   if (/^[A-Z0-9]{2,5}$/.test(word) || /\d/.test(word)) return word
   // Down-case shouty ALL-CAPS words (REVENUE → Revenue).
   if (/^[A-Z][A-Z]+$/.test(word)) return word[0] + word.slice(1).toLowerCase()
+  // Catalog paths frequently arrive as sentence case; make the display label
+  // consistently title cased while retaining connector words above.
+  if (/^[a-z][a-z]+$/.test(word)) return word[0].toUpperCase() + word.slice(1)
   return word
 }
 
 /** Normalize whitespace, drop the source tag, fix shouty casing. */
 export function cleanDatasetName(raw: string): string {
-  const stripped = (raw ?? '').replace(/\s+/g, ' ').trim().replace(SOURCE_TAG, '').trim()
+  const stripped = normalizePresentationText((raw ?? '').replace(/\s+/g, ' ').trim().replace(SOURCE_TAG, '').trim())
   if (!stripped) return raw ?? ''
   const recased = stripped.split(' ').map(recase).join(' ')
   return recased.charAt(0).toUpperCase() + recased.slice(1)
@@ -59,23 +64,41 @@ export interface PrettyName {
   displayName: string
   /** Parent category for grouping, or undefined if it doesn't fit a known group. */
   category?: string
+  /** Unit extracted from an unambiguous trailing title suffix. */
+  unit?: string
 }
 
 export function prettifyDatasetName(raw: string): PrettyName {
-  const name = (raw ?? '').replace(/\s+/g, ' ').trim()
+  const sourceName = (raw ?? '').replace(/\s+/g, ' ').trim()
+  const embeddedUnit = sourceName.match(/\s+(?:us\$?|usd)\s*(?:million|mn\.?)\s*$/i)
+  const name = embeddedUnit
+    ? sourceName.slice(0, embeddedUnit.index).trim()
+    : sourceName
   if (!name) return { displayName: raw ?? '' }
 
   // Cluster: "Agriculture-rubber (CBSL)" → Agriculture / "Rubber"
   const agri = name.match(/^agriculture\s*[-:]\s*(.+)$/i)
-  if (agri) return { displayName: cleanDatasetName(agri[1]), category: 'Agriculture' }
+  if (agri) return {
+    displayName: cleanDatasetName(agri[1]),
+    category: 'Agriculture',
+    ...(embeddedUnit ? { unit: 'US$ Mn' } : {}),
+  }
 
   // Cluster: "...Revenue Collection OF Provincial Councils <X>" → Provincial Council Revenue / "<X>"
   const pcr = name.match(/revenue collection of provincial councils\s+(.+)$/i)
-  if (pcr) return { displayName: cleanDatasetName(pcr[1]), category: 'Provincial Council Revenue' }
+  if (pcr) return {
+    displayName: cleanDatasetName(pcr[1]),
+    category: 'Provincial Council Revenue',
+    ...(embeddedUnit ? { unit: 'US$ Mn' } : {}),
+  }
 
   let category: string | undefined
   for (const [re, cat] of TOPIC_RULES) {
     if (re.test(name)) { category = cat; break }
   }
-  return { displayName: cleanDatasetName(name), category }
+  return {
+    displayName: cleanDatasetName(name),
+    category,
+    ...(embeddedUnit ? { unit: 'US$ Mn' } : {}),
+  }
 }

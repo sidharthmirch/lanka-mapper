@@ -28,6 +28,14 @@ export interface DistrictFeature {
 /** ldflk + nuuuwan are the live upstream catalogs; local = static datasets we curate (data.gov.lk / CBSL / DCS). */
 export type DatasetSource = 'ldflk' | 'nuuuwan' | 'local'
 
+/** A transparent, presentation-only adjustment made to upstream metadata. */
+export interface DatasetPresentationChange {
+  field: 'title' | 'unit' | 'metric'
+  from: string
+  to: string
+  reason: string
+}
+
 export interface DatasetManifestEntry {
   id: string
   /** Short, readable display label (prettified from the upstream name). */
@@ -58,6 +66,8 @@ export interface DatasetManifestEntry {
   citationUrl?: string
   /** Sub-series / entity labels (e.g. nuuuwan sub_category) for catalog search */
   searchHints?: string[]
+  /** Display corrections applied without altering the upstream source data. */
+  presentationChanges?: DatasetPresentationChange[]
 }
 
 export interface TabularData {
@@ -103,4 +113,3 @@ export interface ColorScale {
   max: number
   colors: string[]
 }
-
