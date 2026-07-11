@@ -21,11 +21,11 @@ test('T2: Live catalog exposes 150+ datasets', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  // The terminal status bar reports the catalog size as "{N} SETS".
+  // The command surface reports catalog size as "{N} SETS".
   await expect
     .poll(
       async () => {
-        const t = (await page.getByTestId('terminal-status-bar').textContent()) ?? ''
+        const t = (await page.getByTestId('command-surface').textContent()) ?? ''
         const m = t.replace(/,/g, '').match(/(\d+)\s*SETS/i)
         return Number(m?.[1] ?? '0')
       },
@@ -38,7 +38,7 @@ test('T3: Dataset dropdown is searchable and populated', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await page.getByRole('combobox', { name: 'Search datasets' }).fill('province')
+  await page.getByRole('combobox', { name: 'Search dataset catalog' }).fill('province')
   await page.locator('div[role="combobox"]').first().click()
   await page.waitForSelector('[role="listbox"]')
 

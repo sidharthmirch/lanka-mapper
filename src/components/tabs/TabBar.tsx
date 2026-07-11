@@ -4,12 +4,16 @@ import { useMemo, useState, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import {
   Autocomplete,
+  IconButton,
   Chip,
+  Switch,
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
+import ShuffleIcon from '@mui/icons-material/Shuffle'
 import type { AppTab, DatasetManifestEntry } from '@/types'
 import { sourceShortLabel } from '@/lib/sourceLabels'
 
@@ -18,6 +22,14 @@ interface TabBarProps {
   onTabChange: (tab: AppTab) => void
   datasetManifest: DatasetManifestEntry[]
   onSelectDataset: (dataset: DatasetManifestEntry) => void
+  sidebarOpen: boolean
+  showRandom: boolean
+  randomDisabled: boolean
+  onRandomPick: () => void
+  showChoropleth: boolean
+  onToggleChoropleth: (show: boolean) => void
+  /** When true, renders as the bottom row inside CommandSurface (no outer chrome). */
+  embedded?: boolean
 }
 
 const TABS: Array<{ id: AppTab; label: string }> = [
@@ -71,6 +83,13 @@ export default function TabBar({
   onTabChange,
   datasetManifest,
   onSelectDataset,
+  sidebarOpen,
+  showRandom,
+  randomDisabled,
+  onRandomPick,
+  showChoropleth,
+  onToggleChoropleth,
+  embedded = false,
 }: TabBarProps) {
   const [inputValue, setInputValue] = useState('')
 
@@ -104,11 +123,17 @@ export default function TabBar({
     return fuse.search(q).map((r) => r.item).slice(0, MAX_FUSE_RESULTS)
   }, [fuse, inputValue, sortedManifest])
 
+  // Quick actions when the sidebar is collapsed: random pick on map / plots /
+  // table (each can shuffle a dataset); region shading is map-only.
+  const showCollapsedActions = !sidebarOpen && currentTab !== 'sources'
+
+  const shellClass = embedded
+    ? 'w-full shrink-0 px-2.5 py-1.5 text-[var(--on-surface)] sm:px-3'
+    : 'w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-1.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]'
+
   return (
-    <div
-      className="w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-1.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]"
-    >
-      <div className="flex min-h-[40px] flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <div className={shellClass}>
+      <div className="flex min-h-[38px] flex-col items-stretch gap-1.5 sm:min-h-[40px] sm:flex-row sm:items-center sm:gap-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2">
         <Tabs
           value={currentTab}
@@ -144,8 +169,8 @@ export default function TabBar({
               color: 'var(--on-surface)',
             },
             '& .MuiTab-root.Mui-selected': {
-              color: 'var(--on-surface)',
-              backgroundColor: 'var(--surface-variant)',
+              color: 'var(--accent)',
+              backgroundColor: 'color-mix(in oklab, var(--accent) 10%, var(--surface))',
             },
           }}
         >
@@ -154,10 +179,41 @@ export default function TabBar({
           ))}
         </Tabs>
 
+        {showCollapsedActions && (
+          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-md bg-[var(--surface-2)]/60 px-1 py-0.5">
+            {showRandom && (
+              <Tooltip title="Random dataset">
+                <span>
+                  <IconButton
+                    type="button"
+                    size="small"
+                    color="secondary"
+                    onClick={onRandomPick}
+                    disabled={randomDisabled}
+                    aria-label="Random dataset"
+                    className="bg-[var(--surface)]/80"
+                  >
+                    <ShuffleIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            {currentTab === 'map' && (
+              <Tooltip title="Region shading">
+                <Switch
+                  size="small"
+                  checked={showChoropleth}
+                  onChange={(_, checked) => onToggleChoropleth(checked)}
+                  inputProps={{ 'aria-label': 'Region shading' }}
+                />
+              </Tooltip>
+            )}
+          </div>
+        )}
         </div>
 
         <Autocomplete
-          className="order-last w-full min-w-0 shrink sm:order-first sm:w-[min(380px,42vw)]"
+          className="order-last w-full min-w-0 shrink sm:order-none sm:ml-auto sm:w-[min(340px,38vw)] lg:w-[min(380px,36vw)]"
           size="small"
           options={searchOptions}
           value={undefined}
@@ -176,6 +232,9 @@ export default function TabBar({
           filterOptions={(options) => options}
           isOptionEqualToValue={(a, b) => a.id === b.id}
           getOptionLabel={(option) => option.name}
+          componentsProps={{
+            popper: { sx: { zIndex: 1400 } },
+          }}
           renderOption={(props, option) => {
             const levelChip = getLevelChipStyles(option.level)
             const viewBlocks = viewIndicatorBlocks(option)
@@ -216,22 +275,23 @@ export default function TabBar({
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Search datasets…"
+              placeholder="Search the catalog"
+              variant="outlined"
               inputProps={{
                 ...params.inputProps,
-                'aria-label': 'Search datasets',
+                'aria-label': 'Search dataset catalog',
               }}
-              variant="outlined"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                   backgroundColor: 'var(--surface-2)',
-                  fontSize: 13.5,
+                  fontSize: 13,
+                  minHeight: 36,
                   '& fieldset': {
-                    borderColor: 'var(--outline)',
+                    borderColor: 'transparent',
                   },
                   '&:hover fieldset': {
-                    borderColor: 'var(--border-2)',
+                    borderColor: 'var(--border)',
                   },
                   '&.Mui-focused fieldset': {
                     borderColor: 'var(--primary)',

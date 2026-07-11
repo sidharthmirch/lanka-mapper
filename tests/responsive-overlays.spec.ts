@@ -10,7 +10,7 @@ async function openTimeMapDataset(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
   await page.waitForSelector('.leaflet-container', { timeout: 30000 })
 
-  await page.getByRole('combobox', { name: 'Search datasets' }).fill('Accommodations by District')
+  await page.getByRole('combobox', { name: 'Search dataset catalog' }).fill('Accommodations by District')
   await page.waitForSelector('[role="option"]', { timeout: 15000 })
   await page.getByRole('option').filter({ hasText: 'Accommodations by District' }).click()
   await page.waitForLoadState('networkidle')
