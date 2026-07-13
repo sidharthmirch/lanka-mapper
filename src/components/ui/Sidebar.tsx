@@ -22,13 +22,10 @@ import {
   Switch,
   Button,
   Tooltip,
-  Link,
-  CircularProgress,
 } from '@mui/material'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import SyncIcon from '@mui/icons-material/Sync'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ShuffleIcon from '@mui/icons-material/Shuffle'
 import type { AppTab, ColorScale, DatasetManifestEntry, DatasetSource, MapAdminLevel, MapData } from '@/types'
@@ -37,6 +34,7 @@ import { sourceShortLabel, sourceFullLabel } from '@/lib/sourceLabels'
 import { useAppStore } from '@/store'
 import { useAnimatedScalar } from '@/hooks/useAnimatedScalar'
 import { ACCENT_PRESETS, GRADIENT_PRESETS, REGION_SHADING_GRADIENT_CSS } from '@/lib/uiThemePresets'
+import type { MapViewportPlacement } from '@/lib/mapViewport'
 import PlotSeriesPicker from '@/components/tabs/PlotSeriesPicker'
 
 interface SidebarProps {
@@ -108,6 +106,8 @@ interface SidebarProps {
   mapPlaybackActive?: boolean
   /** Frame interval (ms) at current playback speed; drives ease time-constant. */
   mapPlaybackFrameMs?: number
+  mapViewportPlacement: MapViewportPlacement
+  onMapViewportPlacementChange: (placement: MapViewportPlacement) => void
 }
 
 /**
@@ -135,8 +135,6 @@ function AnimatedMetricText({
 
 const MAX_SIDEBAR_DATASET_OPTIONS = 180
 
-const LDFLK_REPO_URL = 'https://github.com/LDFLK/datasets'
-const LDS_PORTAL_URL = 'https://nuuuwan.github.io/lanka_data_search/'
 
 function getLevelChipStyles(level: 'district' | 'province' | 'national') {
   if (level === 'district') return { label: 'District', className: 'bg-[var(--surface-2)] text-[var(--ink)]' }
@@ -205,11 +203,7 @@ export default function Sidebar({
   showCebLive,
   colorScale,
   datasetManifest,
-  totalDatasets,
-  catalogCounts,
   lastCatalogSyncLabel,
-  catalogLoading,
-  onCatalogSync,
   onRandomPick,
   randomDisabled = false,
   seriesData,
@@ -231,6 +225,8 @@ export default function Sidebar({
   onToggleDarkMode,
   mapPlaybackActive = false,
   mapPlaybackFrameMs = 450,
+  mapViewportPlacement,
+  onMapViewportPlacementChange,
 }: SidebarProps) {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const prefersReducedMotion = useReducedMotion() ?? false
@@ -244,6 +240,7 @@ export default function Sidebar({
   const setGradientPresetId = useAppStore((s) => s.setGradientPresetId)
   const [themeSectionOpen, setThemeSectionOpen] = useState(false)
   const [layersSectionOpen, setLayersSectionOpen] = useState(false)
+  const [detailsSectionOpen, setDetailsSectionOpen] = useState(false)
 
   const filteredDatasets = useMemo(() => {
     const tabFiltered = currentTab === 'map'
@@ -373,7 +370,15 @@ export default function Sidebar({
     })
     return () => {
       cancelAnimationFrame(frame)
-      previousFocusRef.current?.focus()
+      // The collapsed rail button is conditionally remounted. Restore focus on
+      // the new rail control when the original opener was removed with the
+      // sheet, instead of leaving keyboard users on the document body.
+      requestAnimationFrame(() => {
+        const fallback = document.querySelector<HTMLElement>('[aria-label="Expand sidebar"]')
+        // Mobile always restores the rail action, which may be a freshly
+        // mounted element. Desktop restores the original close affordance.
+        ;(isMobile ? fallback : previousFocusRef.current)?.focus()
+      })
     }
   }, [isMobile, open])
 
@@ -416,7 +421,7 @@ export default function Sidebar({
             <span className="text-[var(--ink-2)]">{stats.count.toLocaleString()}</span> entries
           </span>
         </Box>
-        <Box className="mono mt-1.5 flex items-baseline gap-1.5 break-all leading-none text-[var(--accent)]">
+        <Box className="mono mt-1.5 flex min-w-0 items-baseline gap-1.5 whitespace-nowrap leading-none text-[var(--accent)]">
           <span className="text-[26px] font-bold">
             <AnimatedMetricText
               value={additive ? stats.total : stats.avg}
@@ -431,13 +436,13 @@ export default function Sidebar({
         </Box>
       </Box>
 
-      <Box className="grid grid-cols-3 divide-x divide-[var(--border)]">
+      <Box className="grid grid-cols-1 divide-y divide-[var(--border)] min-[340px]:grid-cols-3 min-[340px]:divide-x min-[340px]:divide-y-0">
         {((additive
           ? [['Max', stats.max], ['Avg', stats.avg], ['Min', stats.min]]
           : [['Max', stats.max], ['Min', stats.min], ['n', stats.count]]) as Array<[string, number]>).map(([label, value]) => (
           <Box key={label} className="px-3 py-2.5">
             <span className="term-label">{label}</span>
-            <div className="mono mt-1 break-all text-[15px] font-semibold leading-none text-[var(--ink)]">
+            <div className="mono mt-1 whitespace-nowrap text-[15px] font-semibold leading-none text-[var(--ink)]">
               <AnimatedMetricText
                 value={value}
                 unit={null}
@@ -481,8 +486,19 @@ export default function Sidebar({
   }
 
   return (
-    <motion.div
+    <>
+      {isMobile && open && (
+        <button
+          type="button"
+          data-testid="inspector-backdrop"
+          aria-label="Dismiss dataset inspector"
+          onClick={onClose}
+          className="fixed inset-0 z-[var(--layer-sheet-backdrop)] cursor-default bg-[rgba(15,19,17,0.46)] backdrop-blur-[1px] md:hidden"
+        />
+      )}
+      <motion.div
       ref={dialogRef}
+      data-testid="dataset-inspector"
       layout
       initial={false}
       animate={{ opacity: 1 }}
@@ -499,7 +515,7 @@ export default function Sidebar({
           onClose()
         }
       }}
-      className={`fixed z-[1200] flex flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]/95 shadow-[var(--shadow-sm)] backdrop-blur-sm md:relative md:h-full md:shrink-0 ${open ? 'inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] top-[max(0.5rem,env(safe-area-inset-top))] min-w-0 md:inset-auto md:w-[288px] lg:w-[320px] xl:w-[360px]' : 'right-2 top-[var(--command-rail-top,7rem)] h-auto max-h-[calc(100dvh-var(--command-rail-top,7rem)-1rem)] w-[52px] md:inset-auto md:h-full md:w-[52px]'}`}
+      className={`fixed z-[var(--layer-inspector)] flex flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]/95 shadow-[var(--shadow-sm)] backdrop-blur-sm md:relative md:h-full md:shrink-0 ${open ? 'inset-x-0 bottom-0 top-auto max-h-[min(72dvh,40rem)] min-w-0 rounded-b-none pb-[env(safe-area-inset-bottom)] md:inset-auto md:max-h-none md:w-[288px] md:rounded-md md:pb-0 lg:w-[320px] xl:w-[360px]' : 'right-2 top-[var(--command-rail-top)] h-auto max-h-[calc(100dvh-var(--command-rail-top)-1rem)] w-[52px] md:inset-auto md:h-full md:w-[52px]'}`}
       style={{ color: 'var(--ink)' }}
     >
       {!open ? (
@@ -510,7 +526,7 @@ export default function Sidebar({
               size="small"
               aria-label="Expand sidebar"
               className="bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
-              sx={{ width: { xs: 38, sm: 34 }, height: { xs: 38, sm: 34 } }}
+              sx={{ width: { xs: 44, sm: 34 }, height: { xs: 44, sm: 34 } }}
             >
               <ChevronRightIcon fontSize="small" />
             </IconButton>
@@ -526,7 +542,7 @@ export default function Sidebar({
                   disabled={randomDisabled}
                   aria-label="Random dataset"
                   className="bg-[var(--surface-2)] hover:bg-[var(--surface-3)]"
-                  sx={{ width: { xs: 38, sm: 34 }, height: { xs: 38, sm: 34 } }}
+                  sx={{ width: { xs: 44, sm: 34 }, height: { xs: 44, sm: 34 } }}
                 >
                   <ShuffleIcon fontSize="small" />
                 </IconButton>
@@ -557,7 +573,7 @@ export default function Sidebar({
                 </Typography>
               </Box>
               <span className="mono mt-1 block text-[10px] tracking-[0.04em] text-[var(--ink-3)]">
-                {totalDatasets.toLocaleString()} sets · sync {lastCatalogSyncLabel}
+                Compatible data and view controls
               </span>
             </Box>
             <IconButton data-sidebar-close onClick={onClose} size="small" aria-label="Collapse sidebar" className="shrink-0 bg-[var(--surface-2)] hover:bg-[var(--surface-3)]">
@@ -566,61 +582,20 @@ export default function Sidebar({
           </Box>
 
           <Box className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-            <Box className="space-y-2 border-b border-[var(--border)]/70 pb-4">
-              <span className="term-label">Sources</span>
-              <Box className="mt-2 flex items-center justify-between gap-3">
-                <Box className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
-                  <Chip
-                    component={Link}
-                    href={LDFLK_REPO_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    clickable
-                    label={`LDFLK ${catalogCounts.ldflk}`}
-                    size="small"
-                    className="bg-[var(--surface)] text-[var(--ink)] font-semibold"
-                  />
-                  <Chip
-                    component={Link}
-                    href={LDS_PORTAL_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    clickable
-                    label={`LDS ${catalogCounts.nuuuwan}`}
-                    size="small"
-                    className="bg-[var(--surface)] text-[var(--ink)] font-semibold"
-                  />
-                </Box>
-                {showRandom && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                    onClick={onRandomPick}
-                    disabled={randomDisabled}
-                    sx={{
-                      flexShrink: 0,
-                      minHeight: 28,
-                      py: 0,
-                      px: 1.3,
-                      fontSize: '0.7rem',
-                      fontWeight: 650,
-                      borderRadius: '8px',
-                    }}
-                  >
-                    Random pick
-                  </Button>
-                )}
-              </Box>
-            </Box>
+            {showRandom && (
+              <Button type="button" size="small" variant="outlined" color="secondary" onClick={onRandomPick} disabled={randomDisabled} sx={{ alignSelf: 'flex-start', minHeight: 36, fontWeight: 650 }}>
+                Random dataset
+              </Button>
+            )}
 
             <Box className="space-y-3">
               <FormControl fullWidth size="small" variant="outlined">
-                <InputLabel className="px-1">Dataset</InputLabel>
+                <InputLabel id="compatible-dataset-label" className="px-1">{currentTab === 'map' ? 'Map-compatible datasets' : `${currentTab === 'plots' ? 'Plot' : currentTab === 'table' ? 'Table' : 'Source'}-compatible datasets`}</InputLabel>
                 <Select
+                  labelId="compatible-dataset-label"
+                  inputProps={{ 'aria-label': currentTab === 'map' ? 'Map-compatible datasets' : `${currentTab === 'plots' ? 'Plot' : currentTab === 'table' ? 'Table' : 'Source'}-compatible datasets` }}
                   value={currentDataset || ''}
-                  label="Dataset"
+                  label={currentTab === 'map' ? 'Map-compatible datasets' : `${currentTab === 'plots' ? 'Plot' : currentTab === 'table' ? 'Table' : 'Source'}-compatible datasets`}
                   onChange={(event) => onDatasetChange(event.target.value)}
                   sx={{
                     borderRadius: '8px',
@@ -736,7 +711,34 @@ export default function Sidebar({
 
               {statsPanel}
 
-              <Box className="space-y-1 rounded-md bg-[var(--surface-2)]/50 px-3 py-2.5 text-[11px] leading-snug">
+              {currentTab === 'map' && (
+                <Box className="border-t border-[var(--border)]/70 pt-3">
+                  <span className="term-label mb-2 block">Map framing</span>
+                  <Box role="radiogroup" aria-label="Map framing" className="grid grid-cols-4 gap-1">
+                    {(['auto', 'left', 'center', 'right'] as const).map((placement) => (
+                      <ButtonBase
+                        key={placement}
+                        role="radio"
+                        aria-checked={mapViewportPlacement === placement}
+                        onClick={() => onMapViewportPlacementChange(placement)}
+                        className="min-h-9 rounded-md px-1 text-[10px] font-semibold capitalize"
+                        sx={{
+                          color: mapViewportPlacement === placement ? 'var(--on-accent, #fff)' : 'var(--ink-2)',
+                          backgroundColor: mapViewportPlacement === placement ? 'var(--accent)' : 'var(--surface-2)',
+                        }}
+                      >
+                        {placement}
+                      </ButtonBase>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              <ButtonBase onClick={() => setDetailsSectionOpen((open) => !open)} aria-expanded={detailsSectionOpen} className="flex w-full items-center justify-between border-t border-[var(--border)]/70 pt-3 text-left">
+                <span className="term-label">Data lineage</span><ExpandMoreIcon sx={{ transform: detailsSectionOpen ? 'none' : 'rotate(180deg)' }} />
+              </ButtonBase>
+              <Collapse in={detailsSectionOpen}>
+              <Box className="space-y-1 bg-[var(--surface-2)]/50 px-3 py-2.5 text-[11px] leading-snug">
                 <div>
                   Source: <span className="font-semibold">{sourceFullLabel(currentDatasetSource)}</span>
                 </div>
@@ -783,6 +785,7 @@ export default function Sidebar({
                   )
                 })()}
               </Box>
+              </Collapse>
 
               {currentTab === 'map' && (
                 <Box className="space-y-1 border-t border-[var(--border)]/70 pt-3">
@@ -1150,37 +1153,13 @@ export default function Sidebar({
               </Collapse>
             </Box>
 
-            <Box className="flex items-center gap-2">
-              <Typography
-                variant="caption"
-                className="min-w-0 flex-1 leading-snug opacity-60 font-semibold text-[10px]"
-              >
-                Last synced at {lastCatalogSyncLabel}
-              </Typography>
-              <Button
-                type="button"
-                size="small"
-                variant="outlined"
-                color="primary"
-                onClick={onCatalogSync}
-                disabled={catalogLoading}
-                sx={{
-                  minHeight: 26,
-                  maxHeight: 28,
-                  py: 0,
-                  px: 0.85,
-                  fontSize: '0.65rem',
-                  borderRadius: '8px',
-                  flexShrink: 0,
-                }}
-                startIcon={catalogLoading ? <CircularProgress size={11} /> : <SyncIcon sx={{ fontSize: 13 }} />}
-              >
-                Sync
-              </Button>
-            </Box>
+            <Typography variant="caption" className="block leading-snug opacity-60 font-semibold text-[10px]">
+              Catalog health is available in the global header · last sync {lastCatalogSyncLabel}
+            </Typography>
           </Box>
         </>
       )}
-    </motion.div>
+      </motion.div>
+    </>
   )
 }

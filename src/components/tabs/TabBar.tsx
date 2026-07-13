@@ -108,7 +108,7 @@ export default function TabBar({
   }, [fuse, inputValue, sortedManifest])
 
   const shellClass = embedded
-    ? 'w-full shrink-0 px-2.5 py-1.5 text-[var(--on-surface)] sm:px-3'
+    ? 'w-full shrink-0 px-2.5 py-1 text-[var(--on-surface)] sm:px-3'
     : 'w-full shrink-0 rounded-lg border border-[var(--outline)]/90 bg-[var(--surface)]/90 px-3 py-1.5 shadow-[var(--shadow-md)] text-[var(--on-surface)]'
 
   return (
@@ -162,6 +162,7 @@ export default function TabBar({
         </div>
 
         <Autocomplete
+          aria-label="Global dataset discovery"
           className="order-last w-full min-w-0 shrink sm:order-none sm:ml-auto sm:w-[min(340px,38vw)] lg:w-[min(380px,36vw)]"
           size="small"
           options={searchOptions}
@@ -224,11 +225,11 @@ export default function TabBar({
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Search the catalog"
+              placeholder="Search all datasets"
               variant="outlined"
               inputProps={{
                 ...params.inputProps,
-                'aria-label': 'Search dataset catalog',
+                'aria-label': 'Search all datasets',
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {

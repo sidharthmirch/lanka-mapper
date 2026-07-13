@@ -9,6 +9,7 @@ test('command surface is a single header above the map canvas', async ({ page })
 
   await expect(surface.getByTestId('command-brand')).toContainText('Lanka Mapper')
   await expect(surface.getByTestId('active-dataset-title')).not.toBeEmpty()
+  await expect(surface.getByTestId('analysis-context')).toBeVisible()
 
   const canvas = page.locator('#main-content')
   await expect(canvas).toBeVisible()
@@ -22,6 +23,30 @@ test('command surface is a single header above the map canvas', async ({ page })
   }
 
   await expect(page.getByTestId('terminal-status-bar')).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Search all datasets' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sync dataset catalog' })).toHaveCount(1)
+  await expect(page.getByLabel('Global dataset discovery')).toBeVisible()
+  const hierarchy = await page.evaluate(() => {
+    const title = document.querySelector<HTMLElement>('[data-testid="active-dataset-title"]')
+    const brand = document.querySelector<HTMLElement>('[data-testid="command-brand-label"]')
+    return { title: Number.parseFloat(getComputedStyle(title!).fontSize), brand: Number.parseFloat(getComputedStyle(brand!).fontSize) }
+  })
+  expect(hierarchy.title).toBeGreaterThan(hierarchy.brand)
+})
+
+test('inspector presents compatible data, stable framing, and unbroken values', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await page.goto('/')
+  await page.waitForSelector('.leaflet-container', { timeout: 30000 })
+  await expect(page.getByLabel('Map-compatible datasets')).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: 'Map framing' })).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Left' }).click()
+  await expect(page.getByRole('radio', { name: 'Left' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Reset map framing' }).click()
+  await expect(page.getByRole('radio', { name: 'Left' })).toHaveAttribute('aria-checked', 'true')
+  const noBrokenValues = await page.evaluate(() => Array.from(document.querySelectorAll('.mono')).every((element) => getComputedStyle(element).wordBreak !== 'break-all'))
+  expect(noBrokenValues).toBe(true)
 })
 
 test('mobile first load keeps inspector collapsed and map visible', async ({ page }) => {
@@ -49,7 +74,7 @@ test('map time toolbar keeps scrubber play loop and step speed controls together
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await page.getByPlaceholder('Search the catalog').fill('Accommodations by District')
+  await page.getByPlaceholder('Search all datasets').fill('Accommodations by District')
   await page.waitForSelector('[role="option"]', { timeout: 15000 })
   await page.getByRole('option').filter({ hasText: 'Accommodations by District' }).click()
   await page.waitForLoadState('networkidle')

@@ -46,7 +46,7 @@ export default function CommandSurface({
   return (
     <header
       data-testid="command-surface"
-      className="command-surface shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]"
+      className="command-surface shrink-0 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]"
     >
       <TerminalStatusBar
         datasetName={datasetName}

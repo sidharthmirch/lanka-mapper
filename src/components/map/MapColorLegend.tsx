@@ -37,7 +37,8 @@ export default function MapColorLegend({
 
   return (
     <Box
-      className="pointer-events-none absolute right-3 top-3 z-[855] hidden rounded-md border border-[var(--border)]/85 bg-[var(--surface)]/92 shadow-[var(--shadow-md)] backdrop-blur-sm min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
+      data-map-overlay-role="legend"
+      className="pointer-events-none absolute right-3 top-3 z-[var(--layer-map-overlay)] hidden rounded-md border border-[var(--border)]/85 bg-[var(--surface)]/92 shadow-[var(--shadow-md)] backdrop-blur-sm min-[480px]:right-20 min-[480px]:block md:hidden lg:right-4 lg:top-4 lg:block"
       sx={{
         width: { xs: 'min(220px, calc(100vw - 24px))', lg: 232, xl: 256 },
         px: 1.5,

@@ -38,7 +38,7 @@ test('T3: Dataset dropdown is searchable and populated', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
 
-  await page.getByRole('combobox', { name: 'Search dataset catalog' }).fill('province')
+  await page.getByRole('combobox', { name: 'Search all datasets' }).fill('province')
   await page.locator('div[role="combobox"]').first().click()
   await page.waitForSelector('[role="listbox"]')
 

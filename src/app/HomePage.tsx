@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Box,
@@ -38,6 +38,7 @@ import {
   getGradientColors,
 } from '@/lib/uiThemePresets'
 import { formatMetricValue } from '@/lib/formatDataValue'
+import type { MapViewportPlacement } from '@/lib/mapViewport'
 
 const SriLankaMap = dynamic(() => import('@/components/map/SriLankaMap'), {
   ssr: false,
@@ -201,6 +202,7 @@ export default function HomePage() {
   const prefersReducedMotion = useReducedMotion() ?? false
   /** Floating "Top Regions" card can be closed (restored via the on-map chip). */
   const [rankingsHidden, setRankingsHidden] = useState(false)
+  const [mapViewportPlacement, setMapViewportPlacement] = useState<MapViewportPlacement>('auto')
   const [mapPlaybackActive, setMapPlaybackActive] = useState(false)
   const [mapPlaybackSpeed, setMapPlaybackSpeed] = useState<MapPlaybackSpeed>(1)
   const [mapPlaybackLoop, setMapPlaybackLoop] = useState(false)
@@ -209,6 +211,8 @@ export default function HomePage() {
   const playbackStepIndexRef = useRef(0)
   const playbackLinearYearRef = useRef<number | null>(null)
   const mobileSidebarInitializedRef = useRef(false)
+  const commandSurfaceRef = useRef<HTMLDivElement | null>(null)
+  const [commandRailTop, setCommandRailTop] = useState(0)
   const setPlaybackLinearYearSync = useCallback((y: number | null) => {
     playbackLinearYearRef.current = y
     setPlaybackLinearYear(y)
@@ -369,6 +373,17 @@ export default function HomePage() {
     setMounted(true)
     void initializeCatalog()
   }, [initializeCatalog])
+
+  useLayoutEffect(() => {
+    if (!mounted) return
+    const surface = commandSurfaceRef.current
+    if (!surface) return
+    const update = () => setCommandRailTop(Math.ceil(surface.getBoundingClientRect().bottom + 8))
+    const observer = new ResizeObserver(update)
+    observer.observe(surface)
+    update()
+    return () => observer.disconnect()
+  }, [isMobileLayout, mounted])
 
   useEffect(() => {
     if (!mounted || !isMobileLayout || mobileSidebarInitializedRef.current) return
@@ -592,9 +607,14 @@ export default function HomePage() {
       <CssBaseline />
       <ErrorBoundary>
         <a href="#main-content" className="skip-link">Skip to main content</a>
-        <Box className="app-shell relative h-[100dvh] w-screen overflow-hidden" role="main">
+        <Box
+          className="app-shell relative h-[100dvh] w-screen overflow-hidden"
+          role="main"
+          style={{ '--command-rail-top': `${commandRailTop}px` } as CSSProperties}
+        >
           <Box className="flex h-full w-full gap-2 px-2 pb-2 pt-2 sm:gap-3 sm:px-3 sm:pb-3 sm:pt-3 md:gap-3 md:px-3 md:pb-3 md:pt-3">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
+              <div ref={commandSurfaceRef}>
               <CommandSurface
                 datasetName={activeDataset?.name ?? null}
                 source={currentDatasetSource}
@@ -612,6 +632,7 @@ export default function HomePage() {
                 datasetManifest={datasetManifest}
                 onSelectDataset={handleToolbarDatasetSelect}
               />
+              </div>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -619,6 +640,10 @@ export default function HomePage() {
                 id="main-content"
                 className="data-canvas relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md bg-[var(--bg)]"
                 aria-label="Main content"
+                style={{
+                  '--map-rail-clearance': isMobileLayout && !sidebarOpen ? '3.8rem' : '0px',
+                  '--map-timeline-clearance': activeDataset ? (isMobileLayout ? '13rem' : '8.5rem') : '0px',
+                } as CSSProperties}
               >
               {currentTab === 'map' && (
                 <>
@@ -643,7 +668,10 @@ export default function HomePage() {
                     sidebarOpen={sidebarOpen}
                     accentColor={getAccentUiPalette(accentPresetId, accentTone, isDarkMode).main}
                     mapPlaybackActive={mapPlaybackActive}
-                    prefersReducedMotion={prefersReducedMotion}
+                    viewportPlacement={mapViewportPlacement}
+                    rankingsVisible={Boolean(data?.length) && !rankingsHidden}
+                    railVisible={isMobileLayout && !sidebarOpen}
+                    selectionVisible={Boolean(selectedMapItem)}
                   />
 
                   {data && data.length === 0 && (
@@ -659,7 +687,8 @@ export default function HomePage() {
                     <FloatingPanel
                       label="Top Regions"
                       onClose={() => setRankingsHidden(true)}
-                      className="absolute left-3 top-3 z-[850] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]"
+                      overlayRole="rankings"
+                      className="absolute left-3 top-3 z-[var(--layer-map-overlay)] w-[min(248px,calc(100%-5rem))] md:left-4 md:top-4 md:w-[min(280px,calc(100%-1rem))] lg:w-[min(300px,calc(100%-1rem))] xl:w-[min(320px,calc(100%-1rem))]"
                     >
                       <RankingsChart
                         data={rankingsData}
@@ -675,7 +704,8 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={() => setRankingsHidden(false)}
-                      className="absolute left-3 top-3 z-[850] flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] md:left-4 md:top-4"
+                      data-map-overlay-role="rankings"
+                      className="absolute left-3 top-3 z-[var(--layer-map-overlay)] flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] md:left-4 md:top-4"
                     >
                       <span className="term-label">Top Regions</span>
                       <span aria-hidden className="text-[13px] leading-none">+</span>
@@ -695,7 +725,8 @@ export default function HomePage() {
                     <Box
                       role="status"
                       aria-live="polite"
-                      className="absolute right-3 top-24 z-[850] max-w-[min(18rem,calc(100%-1.5rem))] rounded-md border border-[var(--accent)] bg-[var(--surface)] px-3 py-2 shadow-[var(--shadow-md)]"
+                      data-map-overlay-role="selection"
+                      className="absolute right-3 top-24 z-[var(--layer-map-overlay)] max-w-[min(18rem,calc(100%-1.5rem))] rounded-md border border-[var(--accent)] bg-[var(--surface)] px-3 py-2 shadow-[var(--shadow-md)]"
                     >
                       <span className="term-label text-[var(--accent)]">Selected {selectedMapItem.level}</span>
                       <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--ink)]">{selectedMapItem.name}</div>
@@ -709,7 +740,8 @@ export default function HomePage() {
                     <FloatingPanel
                       label="CEB live mix"
                       onClose={() => setShowCebLive(false)}
-                      className="absolute left-1/2 top-3 z-[856] ml-[-132px]"
+                      overlayRole="live-panel"
+                      className="absolute left-1/2 top-3 z-[var(--layer-map-overlay)] ml-[-132px]"
                     >
                       <CebLivePanel />
                     </FloatingPanel>
@@ -717,7 +749,8 @@ export default function HomePage() {
 
                   {activeDataset && (
                     <Box
-                      className={`absolute bottom-8 z-[860] md:bottom-6 xl:bottom-4 ${
+                      data-map-overlay-role="timeline"
+                      className={`absolute bottom-8 z-[var(--layer-map-overlay)] md:bottom-6 xl:bottom-4 ${
                         isMobileLayout
                           ? sidebarOpen
                             ? 'left-3 right-3'
@@ -775,15 +808,6 @@ export default function HomePage() {
               </motion.div>
             </div>
 
-            {isMobileLayout && sidebarOpen && (
-              <button
-                type="button"
-                aria-label="Close dataset inspector"
-                onClick={toggleSidebar}
-                className="fixed inset-0 z-[1190] cursor-default bg-[rgba(15,19,17,0.46)] backdrop-blur-[1px] md:hidden"
-              />
-            )}
-
             <Sidebar
               open={sidebarOpen}
               onClose={toggleSidebar}
@@ -838,6 +862,8 @@ export default function HomePage() {
               onViewRawData={() => setCurrentTab('table')}
               mapPlaybackActive={mapPlaybackActive}
               mapPlaybackFrameMs={mapPlaybackFrameMs}
+              mapViewportPlacement={mapViewportPlacement}
+              onMapViewportPlacementChange={setMapViewportPlacement}
             />
           </Box>
 
@@ -848,7 +874,7 @@ export default function HomePage() {
           )}
 
           {loading && (
-            <Box className="fixed inset-0 z-[1300] flex items-center justify-center bg-[rgba(34,32,28,0.22)] backdrop-blur-sm">
+            <Box data-testid="dataset-loading-overlay" className="fixed inset-0 z-[var(--layer-toast)] flex items-center justify-center bg-[rgba(34,32,28,0.22)] backdrop-blur-sm">
               <motion.div
                 initial={prefersReducedMotion ? false : { scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}

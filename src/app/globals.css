@@ -20,6 +20,15 @@
  * per-file churn. New semantic tokens sit alongside them.
  */
 :root {
+  /* Semantic ownership for every surface above the Leaflet canvas. */
+  /* Leaflet panes run through the 600s; app-owned map UI starts above them. */
+  --layer-map-control: 700;
+  --layer-map-overlay: 710;
+  --layer-map-tooltip: 730;
+  --layer-sheet-backdrop: 800;
+  --layer-inspector: 810;
+  --layer-toast: 820;
+  --layer-popover: 830;
   /* Surfaces — page sits below panels; panels read by value step, not shadow */
   --bg: #0f1311;
   --surface: #161b18;
@@ -89,6 +98,72 @@
   --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.48);
   --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.55);
 }
+
+@media (pointer: coarse) {
+  .leaflet-container .leaflet-control-zoom a,
+  [data-map-overlay-role='recenter'] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-testid='map-time-toolbar'] .MuiIconButton-root {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-testid='map-time-toolbar'] .MuiSlider-root {
+    min-height: 44px !important;
+  }
+
+  /* Global actions and movable map panels are compact on desktop, but stay
+     thumb-sized whenever the device reports a coarse pointer. */
+  [data-testid='command-surface'] button,
+  [data-testid='command-surface'] .MuiInputBase-root,
+  .map-overlay-handle button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* MUI's compact autocomplete has a more-specific size rule. */
+  [data-testid='command-surface'] .MuiInputBase-root {
+    min-height: 44px !important;
+  }
+
+  /* The mobile inspector is a task sheet: every exposed action gets a
+     consistent thumb-sized target without changing desktop density. */
+  [data-testid='dataset-inspector'][role='dialog'] button,
+  [data-testid='dataset-inspector'][role='dialog'] a[href],
+  [data-testid='dataset-inspector'][role='dialog'] [role='combobox'],
+  [data-testid='dataset-inspector'][role='dialog'] [role='radio'],
+  [data-testid='dataset-inspector'][role='dialog'] [role='checkbox'],
+  [data-testid='dataset-inspector'][role='dialog'] [role='switch'],
+  [data-testid='dataset-inspector'][role='dialog'] .MuiSwitch-root {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-testid='dataset-inspector'][role='dialog'] a[href] {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* The collapsed rail is not a dialog, so its persistent shading switch
+     needs its own thumb-sized surface. */
+  [data-testid='dataset-inspector']:not([role='dialog']) .MuiSwitch-root {
+    width: 44px;
+    height: 44px;
+    transform: none !important;
+  }
+}
+
+/* Tailwind cannot reliably emit arbitrary z-index values backed by CSS vars in
+   every build mode; role selectors make map ownership explicit and durable. */
+[data-map-overlay-role='recenter'] { z-index: var(--layer-map-control) !important; }
+[data-map-overlay-role='rankings'],
+[data-map-overlay-role='legend'],
+[data-map-overlay-role='selection'],
+[data-map-overlay-role='live-panel'],
+[data-map-overlay-role='timeline'] { z-index: var(--layer-map-overlay) !important; }
 
 /*
  * Warm light variant — same warm-neutral family, inverted. Only the base

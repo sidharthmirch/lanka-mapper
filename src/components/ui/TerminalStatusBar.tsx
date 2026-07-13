@@ -51,10 +51,10 @@ export default function TerminalStatusBar({
   const inner = (
     <>
       {/* Brand + active dataset — visual hierarchy */}
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-2.5">
+      <div data-testid="analysis-context" className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <div
           data-testid="command-brand"
-          className="flex shrink-0 items-center gap-1.5"
+          className="hidden shrink-0 items-center gap-1.5 md:flex"
           title="Lanka Mapper"
         >
           <span
@@ -62,7 +62,7 @@ export default function TerminalStatusBar({
             className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-[var(--accent)]"
             style={{ boxShadow: '0 0 8px color-mix(in oklab, var(--accent) 45%, transparent)' }}
           />
-          <span className="hidden font-serif-identity text-[11px] font-semibold tracking-[0.02em] text-[var(--ink-2)] sm:inline">
+          <span data-testid="command-brand-label" className="font-serif-identity text-[10px] font-medium tracking-[0.02em] text-[var(--ink-3)]">
             Lanka Mapper
           </span>
         </div>
@@ -73,12 +73,12 @@ export default function TerminalStatusBar({
           <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
             <h1
               data-testid="active-dataset-title"
-              className="min-w-0 truncate text-[13px] font-semibold leading-tight text-[var(--ink)] sm:text-[14px]"
+              className="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[var(--ink)] sm:text-[16px]"
               title={datasetName}
             >
               {datasetName}
             </h1>
-            <span className="hidden shrink-0 text-[10px] tracking-[0.05em] text-[var(--ink-3)] md:inline">
+            <span className="hidden shrink-0 text-[10px] font-medium tracking-[0.05em] text-[var(--ink-3)] lg:inline">
               {source ? sourceShortLabel(source) : '—'}
             </span>
             {hasStat ? (
@@ -102,15 +102,13 @@ export default function TerminalStatusBar({
       {/* Restrained catalog / sync / theme metadata */}
       <div
         data-testid="command-meta"
-        className="flex shrink-0 items-center gap-2 sm:gap-2.5"
+        className="flex shrink-0 items-center gap-1.5 sm:gap-2"
         style={{ fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace' }}
       >
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <span className="tabular-nums text-[11px] font-semibold text-[var(--ink-2)]">{catalogTotal.toLocaleString()}</span>
-          <span className="hidden text-[9px] tracking-[0.12em] text-[var(--ink-3)] sm:inline">SETS</span>
+          <span className="tabular-nums text-[10px] font-medium text-[var(--ink-3)]">{catalogTotal.toLocaleString()}</span>
+          <span className="hidden text-[9px] tracking-[0.1em] text-[var(--ink-3)] sm:inline">SETS</span>
         </span>
-
-        <Rule />
 
         <Tooltip title={catalogLoading ? 'Syncing catalog…' : 'Re-sync catalog'}>
           <span>
@@ -118,7 +116,7 @@ export default function TerminalStatusBar({
               type="button"
               onClick={onSync}
               disabled={catalogLoading}
-              aria-label="Re-sync dataset catalog"
+              aria-label="Sync dataset catalog"
               className="flex min-h-[36px] items-center gap-1 rounded-md px-1.5 py-1 text-[var(--ink-3)] transition-colors hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:px-1 sm:py-0.5"
             >
               {catalogLoading ? (
@@ -126,12 +124,10 @@ export default function TerminalStatusBar({
               ) : (
                 <SyncIcon sx={{ fontSize: 13 }} />
               )}
-              <span className="hidden tabular-nums text-[10px] sm:inline">{lastSyncLabel}</span>
+              <span className="hidden tabular-nums text-[10px] sm:inline">Sync {lastSyncLabel}</span>
             </button>
           </span>
         </Tooltip>
-
-        <Rule />
 
         <Tooltip title={isDark ? 'Switch to light' : 'Switch to dark'}>
           <IconButton

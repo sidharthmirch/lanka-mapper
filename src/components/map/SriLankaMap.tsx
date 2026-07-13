@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, GeoJSON, MapContainer, ZoomControl, useMap } from 'react-leaflet'
 import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from 'geojson'
 import L from 'leaflet'
@@ -10,6 +10,11 @@ import { applyGeoJsonStyle } from '@/lib/geoJsonStyleSync'
 import { formatMetricValue } from '@/lib/formatDataValue'
 import { DEFAULT_ACCENT_ID, getAccentPreset } from '@/lib/uiThemePresets'
 import { PROVINCE_TO_DISTRICTS } from '@/lib/mapInterpolation'
+import {
+  calculateMapSafeInsets,
+  type MapSafeViewport,
+  type MapViewportPlacement,
+} from '@/lib/mapViewport'
 import MapDataLayers from './MapDataLayers'
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus'
 
@@ -46,8 +51,11 @@ interface SriLankaMapProps {
    * matches the roundWhileActive policy in legend + rankings.
    */
   mapPlaybackActive?: boolean
-  /** Honours OS reduced-motion preference for map recentering. */
-  prefersReducedMotion?: boolean
+  /** User-selected canvas placement; fit is applied only for layout events or Reset. */
+  viewportPlacement: MapViewportPlacement
+  rankingsVisible: boolean
+  railVisible: boolean
+  selectionVisible: boolean
 }
 
 /** Generic boundary feature; the property set depends on the level. */
@@ -185,7 +193,7 @@ interface MapEdgeResetProps {
  * expand/collapse), tiles can leave a blank strip until `invalidateSize()` runs.
  * ResizeObserver catches layout changes; timed invalidates cover Framer Motion springs.
  */
-function MapLayoutInvalidate({ layoutEpoch }: { layoutEpoch: boolean }) {
+function MapLayoutInvalidate({ layoutEpoch }: { layoutEpoch: string }) {
   const map = useMap()
   const zoomingRef = useRef(false)
 
@@ -233,19 +241,72 @@ function MapLayoutInvalidate({ layoutEpoch }: { layoutEpoch: boolean }) {
   return null
 }
 
-/** Fit the island once after Leaflet has measured its final container. */
-function SriLankaViewport() {
+/**
+ * The one framing route for mount, reset and structural layout changes. It is
+ * deliberately independent from data/year/playback changes so analyst pan and
+ * zoom remain authoritative during normal analysis.
+ */
+function SriLankaViewport({
+  placement,
+  rankingsVisible,
+  railVisible,
+  selectionVisible,
+  resetEpoch,
+}: {
+  placement: MapViewportPlacement
+  rankingsVisible: boolean
+  railVisible: boolean
+  selectionVisible: boolean
+  resetEpoch: number
+}) {
   const map = useMap()
 
-  useEffect(() => {
-    // Leave room for the persistent bottom timeline so it never covers the
-    // southern coastline on a short or wide map panel.
+  const fit = useCallback(() => {
+    const size = map.getSize()
+    const viewport: MapSafeViewport = {
+      width: size.x,
+      height: size.y,
+      mode: size.x < 768 ? 'mobile' : size.x < 1100 ? 'tablet' : 'desktop',
+      rankingsVisible,
+      legendVisible: size.x >= 480,
+      selectionVisible,
+      timelineVisible: true,
+      railVisible,
+    }
+    const insets = calculateMapSafeInsets(placement, viewport)
+    const canvasFraction = (size.x + insets.left - insets.right) / (size.x * 2)
+    const container = map.getContainer()
+    container.dataset.mapFramePlacement = placement
+    container.dataset.mapFrameX = canvasFraction.toFixed(4)
     map.fitBounds(SRI_LANKA_FIT_BOUNDS, {
       animate: false,
-      paddingTopLeft: [20, 20],
-      paddingBottomRight: [20, 150],
+      paddingTopLeft: [insets.left, insets.top],
+      paddingBottomRight: [insets.right, insets.bottom],
     })
-  }, [map])
+  }, [map, placement, rankingsVisible, railVisible, selectionVisible])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(fit)
+    const settle = window.setTimeout(fit, 360)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(settle)
+    }
+  // Structural changes and explicit reset only; never bind to data/playback.
+  }, [fit, resetEpoch])
+
+  useEffect(() => {
+    let frame = 0
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(fit)
+    })
+    observer.observe(map.getContainer())
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [fit, map])
 
   return null
 }
@@ -297,7 +358,10 @@ export default function SriLankaMap({
   sidebarOpen,
   accentColor: accentColorProp,
   mapPlaybackActive = false,
-  prefersReducedMotion = false,
+  viewportPlacement,
+  rankingsVisible,
+  railVisible,
+  selectionVisible,
 }: SriLankaMapProps) {
   const accentColor = accentColorProp ?? getAccentPreset(DEFAULT_ACCENT_ID).main
   /**
@@ -332,6 +396,7 @@ export default function SriLankaMap({
   const [cityBreakdownRequested, setCityBreakdownRequested] = useState(false)
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null)
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
+  const [viewportResetEpoch, setViewportResetEpoch] = useState(0)
 
   const geoJsonRef = useRef<L.GeoJSON | null>(null)
   const lastHoveredRef = useRef<L.Layer | null>(null)
@@ -750,8 +815,14 @@ export default function SriLankaMap({
         className="sri-lanka-map rounded-lg"
       >
         <ZoomControl position="bottomright" />
-        <MapLayoutInvalidate layoutEpoch={sidebarOpen} />
-        <SriLankaViewport />
+        <MapLayoutInvalidate layoutEpoch={`${sidebarOpen}-${rankingsVisible}-${railVisible}`} />
+        <SriLankaViewport
+          placement={viewportPlacement}
+          rankingsVisible={rankingsVisible}
+          railVisible={railVisible}
+          selectionVisible={selectionVisible}
+          resetEpoch={viewportResetEpoch}
+        />
 
         {activeChoroplethGeojson && (
           <GeoJSON
@@ -846,7 +917,7 @@ export default function SriLankaMap({
       {renderLevel === 'city' && cityGeojsonLoading && !cityGeojson && (
         <div
           role="status"
-          className="pointer-events-none absolute inset-0 z-[805] flex items-center justify-center bg-[var(--bg)]/30 backdrop-blur-[1px]"
+          className="pointer-events-none absolute inset-0 z-[var(--layer-map-overlay)] flex items-center justify-center bg-[var(--bg)]/30 backdrop-blur-[1px]"
         >
           <span className="rounded-md border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-2 text-[11px] font-semibold text-[var(--ink-2)] shadow-[var(--shadow-md)]">
             Loading city boundaries…
@@ -857,10 +928,11 @@ export default function SriLankaMap({
       {mapInstance && (
         <button
           type="button"
-          onClick={() => mapInstance.setView(SRI_LANKA_CENTER, DEFAULT_ZOOM, { animate: !prefersReducedMotion })}
-          aria-label="Recenter map on Sri Lanka"
-          title="Recenter"
-          className="absolute right-3 top-3 z-[800] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)] text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] lg:top-auto lg:bottom-20"
+          onClick={() => setViewportResetEpoch((epoch) => epoch + 1)}
+          aria-label="Reset map framing"
+          title="Reset map framing"
+          data-map-overlay-role="recenter"
+          className="absolute bottom-[calc(var(--map-timeline-clearance)+0.75rem)] right-[calc(var(--map-rail-clearance)+0.75rem)] z-[var(--layer-map-control)] flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-2)] bg-[var(--surface)] text-[var(--ink-2)] shadow-[var(--shadow-md)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
         >
           <FilterCenterFocusIcon sx={{ fontSize: 18 }} />
         </button>
@@ -868,7 +940,7 @@ export default function SriLankaMap({
 
       {showTooltips && hoverTooltip && (
         <div
-          className="pointer-events-none absolute z-[1200] max-w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-lg border px-3 py-2 shadow-md"
+          className="pointer-events-none absolute z-[var(--layer-map-tooltip)] max-w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-lg border px-3 py-2 shadow-md"
           style={{
             left: hoverTooltip.x + TOOLTIP_CURSOR_OFFSET.x,
             top: hoverTooltip.y + TOOLTIP_CURSOR_OFFSET.y,

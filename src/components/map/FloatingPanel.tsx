@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type PointerEvent } from 'react'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import CloseIcon from '@mui/icons-material/Close'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
@@ -12,6 +12,8 @@ interface FloatingPanelProps {
   onClose?: () => void
   /** Accessible name for the panel (drag/close button labels). */
   label: string
+  /** Semantic role consumed by map safe-area measurement and visual tests. */
+  overlayRole?: string
   children: ReactNode
 }
 
@@ -21,14 +23,14 @@ interface FloatingPanelProps {
  * Leaflet pan beneath); position is a transform offset kept in component state
  * for the session. A small control strip (grip + ✕) sits above the card.
  */
-export default function FloatingPanel({ className, onClose, label, children }: FloatingPanelProps) {
+export default function FloatingPanel({ className, onClose, label, overlayRole, children }: FloatingPanelProps) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const panelRef = useRef<HTMLDivElement | null>(null)
   const drag = useRef<{ px: number; py: number; bx: number; by: number } | null>(null)
   const pendingOffset = useRef<{ x: number; y: number } | null>(null)
   const dragFrame = useRef<number | null>(null)
 
-  const clampOffset = (next: { x: number; y: number }, current = offset) => {
+  const clampOffset = useCallback((next: { x: number; y: number }, current: { x: number; y: number }) => {
     const panel = panelRef.current
     const container = panel?.parentElement
     if (!panel || !container) return next
@@ -45,7 +47,7 @@ export default function FloatingPanel({ className, onClose, label, children }: F
         current.y + containerRect.bottom - panelRect.bottom,
       ),
     }
-  }
+  }, [])
 
   const moveBy = (x: number, y: number) => {
     setOffset((current) => clampOffset({ x: current.x + x, y: current.y + y }, current))
@@ -79,7 +81,7 @@ export default function FloatingPanel({ className, onClose, label, children }: F
     observer.observe(panel)
     keepPanelReachable()
     return () => observer.disconnect()
-  }, [])
+  }, [clampOffset])
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     e.preventDefault()
@@ -121,6 +123,7 @@ export default function FloatingPanel({ className, onClose, label, children }: F
   return (
     <div
       ref={panelRef}
+      data-map-overlay-role={overlayRole}
       className={className}
       style={offset.x || offset.y ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
     >
